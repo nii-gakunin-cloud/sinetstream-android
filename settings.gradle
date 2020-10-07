@@ -1,0 +1,2 @@
+include ':sinetstream'
+rootProject.name='SINETStream for Android'
