@@ -38,3 +38,6 @@ class InvalidConfigurationException(message: String? = null, cause: Throwable? =
 
 class ConnectionException(message: String? = null, cause: Throwable? = null)
     : SinetStreamException(message, cause)
+
+class CryptoException(message: String? = null, cause: Throwable? = null)
+    : SinetStreamException(message, cause)

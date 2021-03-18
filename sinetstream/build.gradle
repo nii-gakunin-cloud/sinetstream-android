@@ -1,20 +1,22 @@
-apply plugin: 'com.android.library'
-apply plugin: 'kotlin-android'
-apply plugin: 'kotlin-android-extensions'
-apply plugin: "de.mannodermaus.android-junit5"
-apply plugin: 'maven'
-
-version '1.4.0'
+// From Kotlin-1.4.20, kotlin-android-extensions is deprecated.
+plugins {
+  id 'com.android.library'
+  id 'kotlin-android'
+  //id 'kotlin-android-extensions'
+  id 'de.mannodermaus.android-junit5'
+  id 'maven-publish'
+  id "com.jfrog.bintray" version "1.8.5"
+}
 
 android {
     compileSdkVersion 30
-    buildToolsVersion '30.0.2'
+    buildToolsVersion '30.0.3'
 
     defaultConfig {
         minSdkVersion 26
         targetSdkVersion 30
-        versionCode 10
-        versionName '1.4.0'
+        versionCode currentCode as Integer
+        versionName currentVersion
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArgument "runnerBuilder", "de.mannodermaus.junit5.AndroidJUnit5Builder"
@@ -58,28 +60,70 @@ dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     implementation 'androidx.appcompat:appcompat:1.2.0'
-    implementation 'androidx.core:core-ktx:1.3.1'
-    implementation 'org.yaml:snakeyaml:1.27'
-    implementation 'org.apache.avro:avro:1.10.0'
+    implementation 'androidx.core:core-ktx:1.3.2'
+    implementation 'org.yaml:snakeyaml:1.28'
+    implementation 'org.apache.avro:avro:1.10.1'
     implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
     implementation 'org.eclipse.paho:org.eclipse.paho.android.service:1.1.1'
     implementation 'androidx.legacy:legacy-support-v4:1.0.0'
 
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
-    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.7.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.1'
+    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.7.1'
+
+    /*
+     * Android-Junit5
+     * https://github.com/mannodermaus/android-junit5#instrumentation-test-support
+     */
     androidTestImplementation 'androidx.test:runner:1.3.0'
-    androidTestImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
-    androidTestImplementation "de.mannodermaus.junit5:android-test-core:1.1.0"
-    androidTestRuntimeOnly "de.mannodermaus.junit5:android-test-runner:1.1.0"
+    androidTestImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.1'
+    androidTestImplementation "de.mannodermaus.junit5:android-test-core:1.2.0"
+    androidTestRuntimeOnly "de.mannodermaus.junit5:android-test-runner:1.2.0"
 }
 
-uploadArchives {
-    repositories {
-        mavenDeployer {
-            repository(url: 'file:repository')
-            pom.groupId = 'jp.ad.sinet.stream.android'
-            pom.artifactId = 'sinetstream-android'
-        }
+task androidSourcesJar(type: Jar) {
+    archiveClassifier.set('sources')
+    from android.sourceSets.main.java.srcDirs
+}
+
+afterEvaluate {
+  publishing {
+    publications {
+      maven(MavenPublication) {
+        from components.release
+        artifact androidSourcesJar
+        groupId = 'jp.ad.sinet.sinetstream'
+        artifactId = 'SINETStream-android'
+        version = currentVersion
+      }
     }
+    repositories {
+      maven {
+        url = System.getenv('MAVEN_ENDPOINT')
+        credentials(HttpHeaderCredentials) {
+          name = "Job-Token"
+          value = System.getenv('CI_JOB_TOKEN')
+        }
+        authentication {
+          header(HttpHeaderAuthentication)
+        }
+      }
+    }
+  }
+
+  bintray {
+    user = project.hasProperty('bintray_user') ? bintray_user : System.getenv('BINTRAY_USER')
+    key = project.hasProperty('bintray_key') ? bintray_key : System.getenv('BINTRAY_API_KEY')
+    publications = ['maven']
+    pkg {
+      repo = 'maven'
+      name = 'SINETStream-android'
+      licenses = ['Apache-2.0']
+      websiteUrl = 'https://www.sinetstream.net'
+      vcsUrl = 'https://github.com/nii-gakunin-cloud/sinetstream-android.git'
+      version {
+        name = project.version
+      }
+    }
+  }
 }

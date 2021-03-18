@@ -1,5 +1,5 @@
 <!--
-Copyright (C) 2020 National Institute of Informatics
+Copyright (C) 2020-2021 National Institute of Informatics
 
 Licensed to the Apache Software Foundation (ASF) under one
 or more contributor license agreements.  See the NOTICE file
@@ -79,7 +79,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'jp.ad.sinet.stream.android:sinetstream-android:0.2.7'
+    implementation 'jp.ad.sinet.stream.android:sinetstream-android:1.5.0'
 
     implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
     implementation 'org.eclipse.paho:org.eclipse.paho.android.service:1.1.1'
@@ -148,12 +148,7 @@ Android版のSINETStreamライブラリを用いるユーザアプリケーシ�
 ### SINETStreamの設定ファイルの配置
 
 アプリケーションのローカルストレージにSINETStreamの設定ファイルを配置する。
-
-Javaでは
-```
-File(getApplicationContext().getFilesDir(), "sinetstream_config.yml")
-```
-で取得できるパスに設定ファイルを配置すればよい。
+（/data/data/__PACKAGE__/files/sinetstream_config.yml）
 
 設定ファイルの記述内容の例を以下に示す。
 ```

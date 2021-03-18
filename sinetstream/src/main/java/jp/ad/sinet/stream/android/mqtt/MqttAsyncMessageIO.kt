@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 National Institute of Informatics
+ * Copyright (C) 2020 National Institute of Informatics
  *
  *  Licensed to the Apache Software Foundation (ASF) under one
  *  or more contributor license agreements.  See the NOTICE file
@@ -26,22 +26,19 @@ import android.content.Context
 import android.util.Log
 import jp.ad.sinet.stream.android.AndroidConfigLoader.KEY_DESERIALIZER
 import jp.ad.sinet.stream.android.AndroidConfigLoader.KEY_SERIALIZER
-import jp.ad.sinet.stream.android.api.Consistency
-import jp.ad.sinet.stream.android.api.Deserializer
-import jp.ad.sinet.stream.android.api.Serializer
-import jp.ad.sinet.stream.android.api.ValueType
+import jp.ad.sinet.stream.android.api.*
 import jp.ad.sinet.stream.android.api.low.AsyncMessageReader
 import jp.ad.sinet.stream.android.api.low.AsyncMessageWriter
 import jp.ad.sinet.stream.android.api.low.ReaderMessageCallback
 import jp.ad.sinet.stream.android.api.low.WriterMessageCallback
 import jp.ad.sinet.stream.android.config.ConfigParser
+import jp.ad.sinet.stream.android.crypto.CipherHandler
 import jp.ad.sinet.stream.android.net.UriBuilder
 import jp.ad.sinet.stream.android.serdes.CompositeDeserializer
 import jp.ad.sinet.stream.android.serdes.CompositeSerializer
 import org.eclipse.paho.android.service.MqttAndroidClient
 import org.eclipse.paho.client.mqttv3.*
 import org.eclipse.paho.client.mqttv3.MqttAsyncClient.generateClientId
-import java.lang.ClassCastException
 import java.util.concurrent.atomic.AtomicBoolean
 
 const val LOG_TAG = "SINETStream"
@@ -72,6 +69,8 @@ abstract class MqttMessageIO(
     val valueType: ValueType
     val clientId: String
     val connectOptions: MqttConnectOptions
+    val mCipherHandler: CipherHandler?
+    val mCryptoPassword: String
 
     protected val client: MqttAndroidClient
     private val isClosed: AtomicBoolean = AtomicBoolean(false)
@@ -92,6 +91,14 @@ abstract class MqttMessageIO(
         val connectOptionBuilder =
             MqttConnectOptionBuilder(context, configParser, serverUris)
         connectOptions = connectOptionBuilder.buildMqttConnectOptions()
+
+        if (configParser.cryptoEnabled) {
+            mCipherHandler = getCipherHandler()
+            mCryptoPassword = configParser.cryptoPassword
+        } else {
+            mCipherHandler = null
+            mCryptoPassword = ""
+        }
     }
 
     fun close() {
@@ -141,6 +148,25 @@ abstract class MqttMessageIO(
         stringValue += "}"
         return stringValue
     }
+
+    private fun getCipherHandler(): CipherHandler {
+        val cipherHandler: CipherHandler
+        try {
+            cipherHandler = CipherHandler(
+                    configParser.keyLength,
+                    configParser.keyDerivationAlgorithm,
+                    configParser.cryptoAlgorithm,
+                    configParser.iterationCount)
+
+            cipherHandler.setTransformation(
+                    configParser.cryptoAlgorithm,
+                    configParser.feedbackMode,
+                    configParser.paddingScheme)
+        } catch (e: CryptoException) {
+            throw CryptoException(e.message, e)
+        }
+        return cipherHandler
+    }
 }
 
 class MqttAsyncMessageReader<T>(
@@ -183,24 +209,40 @@ class MqttAsyncMessageReader<T>(
                 callback.onConnectionEstablished()
             }
 
-            override fun connectionLost(cause: Throwable) {
-                Log.w(TAG, "connectionLost: $cause")
-                callback.onConnectionClosed(cause.toString())
+            override fun connectionLost(cause: Throwable?) {
+                if (cause != null) {
+                    Log.w(TAG, "connectionLost: $cause")
+                    callback.onConnectionClosed(cause.toString())
+                } else {
+                    Log.d(TAG, "Disconnect completed")
+                    callback.onConnectionClosed(null)
+                }
             }
 
             @Throws(Exception::class)
             override fun messageArrived(topic: String, mqttMessage: MqttMessage) {
-                val msgString = "MqttMessage: topic($topic),message($mqttMessage)"
+                var payload = mqttMessage.payload ?: ByteArray(0)
+
+                if (mCipherHandler != null) {
+                    try {
+                        payload = mCipherHandler.decrypt(payload, mCryptoPassword)
+                    } catch (e: CryptoException) {
+                        val description = e.message ?: "Decrypt Failure"
+                        val cause = e.cause
+
+                        mCallback.onError(description, cause)
+                        return
+                    }
+                }
 
                 try {
-                    val message = compositeDeserializer.toMessage(
-                        topic, mqttMessage.payload ?: ByteArray(0), mqttMessage
-                    )
+                    val message = compositeDeserializer.toMessage(topic, payload, mqttMessage)
+
                     if (message != null) {
                         Log.d(TAG, "messageArrived: $message")
                         callback.onMessageReceived(message)
                     } else {
-                        Log.w(TAG, "messageArrived: Failed to deserialize: $msgString")
+                        Log.w(TAG, "messageArrived: Failed to deserialize")
                     }
                 } catch (exception: ClassCastException) {
                     callback.onError("messageArrived", exception)
@@ -257,7 +299,8 @@ class MqttAsyncMessageReader<T>(
                 mCallback.onError("disconnect: NG", exception)
             }
         } else {
-            mCallback.onError("disconnect: Not yet connected", null)
+            //mCallback.onError("disconnect: Not yet connected", null)
+            Log.w(TAG, "disconnect: Not yet connected")
         }
     }
 
@@ -383,15 +426,24 @@ class MqttAsyncMessageWriter<T>(
                 callback.onConnectionEstablished()
             }
 
-            override fun connectionLost(cause: Throwable) {
-                Log.w(TAG, "ConnectionLost: $cause")
-                callback.onConnectionClosed(cause.toString())
+            override fun connectionLost(cause: Throwable?) {
+                if (cause != null) {
+                    Log.w(TAG, "connectionLost: $cause")
+                    callback.onConnectionClosed(cause.toString())
+                } else {
+                    Log.d(TAG, "Disconnect completed")
+                    callback.onConnectionClosed(null)
+                }
             }
 
             @Throws(Exception::class)
             override fun messageArrived(topic: String, mqttMessage: MqttMessage) {
                 // No such case for MqttMessageWriter
-                Log.d(TAG, "messageArrived: topic($topic),message($mqttMessage)")
+                /*
+                 * This function seems to be called only if client_id is
+                 * specified in the SINETStream config file.
+                 */
+                Log.d(TAG, "messageArrived: topic($topic),message(...)")
             }
 
             override fun deliveryComplete(token: IMqttDeliveryToken) {
@@ -446,14 +498,32 @@ class MqttAsyncMessageWriter<T>(
                 mCallback.onError("disconnect: NG", exception)
             }
         } else {
-            mCallback.onError("disconnect: Not yet connected", null)
+            //mCallback.onError("disconnect: Not yet connected", null)
+            Log.w(TAG, "disconnect: Not yet connected")
         }
     }
 
     override fun publish(message: T, userData: Any?) {
         if (client.isConnected) {
             try {
-                val payload = compositeSerializer.toPayload(message)
+                var payload = compositeSerializer.toPayload(message)
+                if (payload == null) {
+                    Log.w(TAG, "Null payload, skip publish")
+                    return
+                }
+
+                if (mCipherHandler != null) {
+                    try {
+                        payload = mCipherHandler.encrypt(payload, mCryptoPassword)
+                    } catch (e: CryptoException) {
+                        val description = e.message ?: "Encrypt Failure"
+                        val cause = e.cause
+
+                        mCallback.onError(description, cause)
+                        return
+                    }
+                }
+
                 client.publish(topicArray[0], payload, qosArray[0], retain,
                     null, object : IMqttActionListener {
                         override fun onSuccess(asyncActionToken: IMqttToken?) {

@@ -28,6 +28,8 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import java.util.Arrays;
+
 import jp.ad.sinet.stream.android.AndroidMessageReaderFactory;
 import jp.ad.sinet.stream.android.api.low.AsyncMessageReader;
 import jp.ad.sinet.stream.android.api.low.ReaderMessageCallback;
@@ -39,7 +41,7 @@ import jp.ad.sinet.stream.android.api.low.ReaderMessageCallback;
  *     Due to the nature of messaging system, all methods listed below
  *     should be handled as asynchronous requests.
  *     <ul>
- *         <li>initialize</li>
+ *         <li>initialize + setup</li>
  *         <li>terminate</li>
  *     </ul>
  * </p>
@@ -49,12 +51,12 @@ import jp.ad.sinet.stream.android.api.low.ReaderMessageCallback;
  *     request or any error condition can be notified.
  * </p>
  */
-public class SinetStreamReader {
+public class SinetStreamReader<T> {
     private final String TAG = SinetStreamReader.class.getSimpleName();
 
     private final Context mContext;
-    private final SinetStreamReader.SinetStreamReaderListener mListener;
-    private AsyncMessageReader<String> mReader = null;
+    private final SinetStreamReaderListener<T> mListener;
+    private AsyncMessageReader<T> mReader = null;
     private boolean mServerReady = false;
     private boolean mIsSubscribed = false;
 
@@ -62,16 +64,19 @@ public class SinetStreamReader {
      * Constructs a SinetStreamReader instance.
      *
      * @param context the Application context which implements
-     *                {@link SinetStreamReader.SinetStreamReaderListener},
+     *                {@link SinetStreamReaderListener},
      *                usually it is the calling {@link Activity} itself.
      *
      * @throws RuntimeException if given context does not implement
      *                          the required listener.
      */
     public SinetStreamReader(@NonNull Context context) {
-        if (context instanceof SinetStreamReader.SinetStreamReaderListener) {
+        if (context instanceof SinetStreamReaderListener) {
             mContext = context;
-            mListener = (SinetStreamReader.SinetStreamReaderListener) context;
+
+            /* Set annotation to suppress "unchecked cast" warning */
+            //noinspection unchecked
+            mListener = (SinetStreamReaderListener<T>) context;
         } else {
             throw new RuntimeException(context.toString() +
                     " must implement SinetStreamReaderListener");
@@ -79,57 +84,95 @@ public class SinetStreamReader {
     }
 
     /**
-     * Connects to the broker and prepares oneself as a subscriber.
+     * Allocates a message Reader instance.
+     * <p>
+     *     This method internally allocates a message reader instance
+     *     which matches to the user-specified messaging system.<br>
+     *     Currently, we only support MQTT for it.
+     * </p>
      *
      * <p>
-     *     NB: Connection parameters will be specified by external configuration file.
-     *     See https://www.sinetstream.net/docs/userguide/config.html
+     *     Technically, initialization process is separated in two phases.
+     *     <ol>
+     *         <li>{@code initialize()}</li>
+     *         - this method; for an instance allocation
+     *         <li>{@link #setup()}</li>
+     *         - next method; for preparation and initial connect request
+     *     </ol>
+     * </p>
+     *
+     * <p>
+     *     This method {@code initialize()} runs synchronously.
+     *     Once it returns without error, call {@code setup()} next.
      * </p>
      *
      * @param serviceName the service name to match configuration parameters.
      */
     public void initialize(@NonNull String serviceName) {
         if (mReader != null) {
-            Log.w(TAG, "Initialize: Calling sequence failure");
+            /* Show log message and do nothing here. */
+            Log.d(TAG, "Initialize: Getting back from background");
         } else {
             /* Get a new Reader instance. */
-            AndroidMessageReaderFactory.Builder<String> builder =
+            AndroidMessageReaderFactory.Builder<T> builder =
                     new AndroidMessageReaderFactory.Builder<>();
             builder.setContext(mContext); // Mandatory
             builder.setService(serviceName); // Mandatory
 
             try {
-                AndroidMessageReaderFactory<String> amrf = builder.build();
+                AndroidMessageReaderFactory<T> amrf = builder.build();
                 mReader = amrf.getAsyncReader();
             } catch (NoConfigException |
                     InvalidConfigurationException |
+                    NoServiceException |
                     UnsupportedServiceException e) {
                 mListener.onError(e.toString());
-                return;
             }
+        }
+    }
 
-            /*
-            try {
-                mReader = new AndroidMessageReaderFactory.
-                        Builder<String>().
-                        service("service-1").
-                        context(mContext).
-                        build().
-                        getAsyncReader();
-            } catch (NoConfigException e) {
-                mListener.onError(e.toString());
-                return;
-            }
-             */
+    /**
+     * Check if initialization has successfully completed.
+     *
+     * @return true if a message Reader has allocated, false otherwise
+     */
+    public boolean isInitializationSuccess() {
+        return (mReader != null);
+    }
 
+    /**
+     * Sets up a connection to the Broker via underlying messaging system.
+     * <p>
+     *     Actually, this is the latter half of initialization process.<br>
+     *     In this method, internal callback handlers
+     *     {@link ReaderMessageCallback}
+     *     will be associated with the
+     *     {@link SinetStreamReader.SinetStreamReaderListener}
+     *     to notify events to the user level.<br>
+     *     As the last step of setup sequence, initial connect request
+     *     to the Broker will be issued via underlying messaging system.
+     * </p>
+     * <p>
+     *     NB: Connection parameters will be specified by external configuration file.
+     * </p>
+     *
+     * @see <a href=https://www.sinetstream.net/docs/userguide/config.html>
+     *     https://www.sinetstream.net/docs/userguide/config.html</a>
+     */
+    public void setup() {
+        /* Make sure this function is called just once */
+        if (mReader != null && !mServerReady) {
             /* Set collection of callback functions for this Reader instance. */
             setCallback();
 
             /*
-             * Issue an async connect request to Broker.
+             * Issue an asynchronous connect request to the Broker.
              * It's result will be notified by one of callback functions.
              */
             mReader.connect();
+        } else {
+            /* Show log message and do nothing here. */
+            Log.d(TAG, "Setup: already done");
         }
     }
 
@@ -138,7 +181,7 @@ public class SinetStreamReader {
      */
     private void setCallback() {
         if (mReader != null) {
-            mReader.setCallback(new ReaderMessageCallback<String>() {
+            mReader.setCallback(new ReaderMessageCallback<T>() {
                 @Override
                 public void onConnectionEstablished() {
                     // Successfully connected to the Broker
@@ -178,21 +221,29 @@ public class SinetStreamReader {
                     mListener.onReaderStatusChanged(false);
 
                     if (mReader != null) {
-                        mReader.close();
-                        //mReader.disconnect();
+                        //mReader.close();
+                        mReader.disconnect();
                     }
                 }
 
                 @Override
-                public void onMessageReceived(@NonNull Message<String> message) {
+                public void onMessageReceived(@NonNull Message<T> message) {
                     Log.d(TAG, "onMessageReceived");
-                    mListener.onMessageReceived(message.toString());
+                    Long unixTime = message.getTimestamp();
+
+                    mListener.onMessageReceived(
+                            message.getTopic(),
+                            (unixTime != null) ? unixTime : 0L,
+                            message.getPayload());
                 }
 
                 @Override
                 public void onError(@NonNull String description, Throwable exception) {
                     String errmsg = description;
                     if (exception != null) {
+                        String stack = Arrays.toString(exception.getStackTrace());
+                        Log.e(TAG, "onError(exception): \n" +
+                                stack.replaceAll(", ", "\n "));
                         errmsg += ": " + exception.toString();
                     }
                     mListener.onError(errmsg);
@@ -202,33 +253,66 @@ public class SinetStreamReader {
     }
 
     /**
-     * Disconnects from the broker and cleans up allocated resources.
+     * Disconnects from the Broker and cleans up allocated resources.
      */
     public void terminate() {
         if (mReader != null) {
             if (mIsSubscribed) {
                 mReader.unsubscribe();
             } else {
-                mReader.close();
-                //mReader.disconnect();
+                //mReader.close();
+                mReader.disconnect();
             }
         }
     }
 
-    public interface SinetStreamReaderListener {
+    /**
+     * Relay "wrapper class detected" error message to the UI.
+     *
+     * @param description brief description of the error.
+     */
+    public void abort(@NonNull String description) {
+        mListener.onError(description);
+    }
+
+    /**
+     * Returns the ValueType specified by user.
+     * <p>
+     *     Since this class is defined using generics, its wrapper class
+     *     with specific type must be consistent with {@link ValueType}.
+     * </p>
+     *
+     * @return valueType the ValueType bound to this class
+     */
+    @Nullable
+    public ValueType getValueType() {
+        ValueType valueType = null;
+        if (mReader != null) {
+            valueType = mReader.getValueType();
+        } else {
+            Log.w(TAG, "getValueType: Calling sequence failure");
+        }
+        return valueType;
+    }
+
+    public interface SinetStreamReaderListener<T> {
         /**
          * Called when availability status has changed.
          *
-         * @param isReady true if "connected and subscribed" to the broker, false otherwise
+         * @param isReady true if "connected and subscribed" to the Broker, false otherwise
          */
         void onReaderStatusChanged(boolean isReady);
 
         /**
          * Called when a message has received on any subscribed topic.
          *
+         * @param topic a topic where received message came from
+         * @param timestamp message publish date and time, measured in UnixTime format.
          * @param data received message contents
          */
-        void onMessageReceived(@NonNull String data);
+        void onMessageReceived(@NonNull String topic,
+                               long timestamp,
+                               @NonNull T data);
 
         /**
          * Called when any error condition has met. The error might be detected

@@ -1,2 +1,3 @@
 include ':sinetstream'
-rootProject.name='SINETStream for Android'
+//rootProject.name='SINETStream for Android'
+rootProject.name='SINETStream-android'

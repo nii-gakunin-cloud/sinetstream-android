@@ -29,8 +29,6 @@ import java.io.File
 import java.util.*
 
 object AndroidConfigLoader {
-    private const val CONFIG_FILENAME = "sinetstream_config.yml"
-
     const val KEY_TOPIC = "topic"
     const val KEY_CONSISTENCY = "consistency"
     const val KEY_VALUE_TYPE = "value_type"
@@ -41,7 +39,7 @@ object AndroidConfigLoader {
     const val KEY_CLIENT_ID = "client_id"
 
     fun load(dir: File?, serviceName: String): Map<String, Any> {
-        val configFile = File(dir, CONFIG_FILENAME)
+        val configFile = File(dir, ApiKeys.CONFIG_FILENAME)
         if (!configFile.canRead()) {
             throw NoConfigException("$configFile: Cannot read?")
         }
@@ -65,7 +63,7 @@ object AndroidConfigLoader {
         } ?: throw NoServiceException("Unknown $serviceName")
     }
 
-    private fun translate(params: Map<String, Any>): Map<String, Any>? {
+    private fun translate(params: Map<String, Any>): Map<String, Any> {
         val p = params.toMutableMap()
         replaceEnum<Consistency>(
             p,

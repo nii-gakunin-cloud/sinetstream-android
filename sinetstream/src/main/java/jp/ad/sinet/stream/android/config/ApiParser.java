@@ -36,9 +36,18 @@ public class ApiParser extends BaseParser {
             throws InvalidConfigurationException {
         //parseTopic(myParams);
         parseTopics(myParams);
-        parseClientId(myParams);
+
+        /*
+         * Workaround for weird crash after unsubscribe() & disconnect().
+         * https://github.com/eclipse/paho.mqtt.android/issues/238
+         *
+         * Here we ignore user-specified clientId, and let the
+         * library MqttAsyncClient generate a random one instead.
+         */
+        //parseClientId(myParams);
+
         parseConsistency(myParams);
-        //parseValueType(myParams);
+        parseValueType(myParams);
         parseDataEncryption(myParams);
     }
 
@@ -101,7 +110,6 @@ public class ApiParser extends BaseParser {
 
     @Nullable
     public final ValueType getValueType() {
-        mValueType = ValueType.TEXT; /* Fixed for now */
         return mValueType;
     }
 

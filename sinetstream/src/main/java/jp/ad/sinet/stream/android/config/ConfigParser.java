@@ -37,6 +37,7 @@ public class ConfigParser {
     private final TlsParser mTlsParser = new TlsParser();
     private final MqttParser mMqttParser = new MqttParser();
     private final MqttTlsParser mMqttTlsParser = new MqttTlsParser();
+    private final CryptoParser mCryptoParser = new CryptoParser();
 
     /*
      * Link to sub parsers for referring parsed values.
@@ -65,14 +66,23 @@ public class ConfigParser {
         return mMqttTlsParser;
     }
 
+    public final CryptoParser getCryptoParser() {
+        return mCryptoParser;
+    }
+
     /*
      * Global control parameters
      */
     private boolean mMqttEnabled = false;
     private boolean mTlsEnabled = false;
+    private boolean mCryptoEnabled = false;
 
     public final boolean getTlsEnabled() {
         return mTlsEnabled;
+    }
+
+    public final boolean getCryptoEnabled() {
+        return mCryptoEnabled;
     }
 
     /*
@@ -107,6 +117,17 @@ public class ConfigParser {
             if (mTlsEnabled) {
                 /* MQTT-specific TLS parameters */
                 mMqttTlsParser.parse(myParams);
+            }
+        }
+
+        /* Crypto */
+        if (hasDataEncryption()) {
+            mCryptoParser.parse(myParams);
+            mCryptoEnabled = hasCrypto();
+
+            if (!mCryptoEnabled) {
+                throw new InvalidConfigurationException(
+                        "DataEncryption has set, but missing crypto", null);
             }
         }
     }
@@ -150,5 +171,58 @@ public class ConfigParser {
             retain = parsedValue;
         }
         return retain;
+    }
+
+    private boolean hasDataEncryption() {
+        boolean enabled = false;
+        Boolean parsedValue;
+        if ((parsedValue = mApiParser.getDataEncryption()) != null) {
+            enabled = parsedValue;
+        }
+        return enabled;
+    }
+
+    private boolean hasCrypto() {
+        boolean enabled = false;
+        Boolean parsedValue;
+        if ((parsedValue = mCryptoParser.hasCrypto()) != null) {
+            enabled = parsedValue;
+        }
+        return enabled;
+    }
+
+    public String getCryptoPassword() {
+        String parsedValue = mCryptoParser.getPassword();
+        return ((parsedValue != null) ? parsedValue : "");
+    }
+
+    public String getCryptoAlgorithm() {
+        String parsedValue = mCryptoParser.getAlgorithm();
+        return ((parsedValue != null) ? parsedValue : "");
+    }
+
+    public String getFeedbackMode() {
+        String parsedValue = mCryptoParser.getMode();
+        return ((parsedValue != null) ? parsedValue : "");
+    }
+
+    public String getPaddingScheme() {
+        String parsedValue = mCryptoParser.getPadding();
+        return ((parsedValue != null) ? parsedValue : "");
+    }
+
+    public int getKeyLength() {
+        Integer parsedValue = mCryptoParser.getKeyLength();
+        return ((parsedValue != null) ? parsedValue : 0);
+    }
+
+    public String getKeyDerivationAlgorithm() {
+        String parsedValue = mCryptoParser.getKeyDerivationAlgorithm();
+        return ((parsedValue != null) ? parsedValue : "");
+    }
+
+    public int getIterationCount() {
+        Integer parsedValue = mCryptoParser.getIteration();
+        return ((parsedValue != null) ? parsedValue : 0);
     }
 }
