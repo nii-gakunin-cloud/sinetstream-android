@@ -79,7 +79,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'jp.ad.sinet.stream.android:sinetstream-android:1.5.0'
+    implementation 'jp.ad.sinet.stream.android:sinetstream-android:1.5.1'
 
     implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
     implementation 'org.eclipse.paho:org.eclipse.paho.android.service:1.1.1'
