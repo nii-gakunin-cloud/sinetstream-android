@@ -46,21 +46,23 @@ public class CipherModeGCM extends CipherBase {
     private final int GCM_IV_BYTES = 16;
 
     /**
-     * Constructor -- Allocates a KeyUtil instance
+     * Constructor -- Allocates a CipherModeGCM instance
      *
-     * @param keyLength              -- Byte length of a secret key to be generated
+     * @param keyLength -- Byte length of a secret key to be generated
      * @param keyDerivationAlgorithm -- Secret key derivation algorithm name,
-     *                               such like PBKDF2WithHmacSHA256
-     * @param cipherAlgorithm        -- Cipher algorithm name, such like AES
-     * @param iterationCount         -- Iteration count to be used in block mode
+     *                               such like "PBKDF2WithHmacSHA256"
+     * @param cipherAlgorithm -- Cipher algorithm name, such like "AES"
+     * @param saltLength -- Byte length of a cryptographic salt to be generated
+     * @param iterationCount -- Iteration count to be used in block mode
      * @throws CryptoException -- Invalid parameter cases
      */
     public CipherModeGCM(int keyLength,
                          @NonNull String keyDerivationAlgorithm,
                          @NonNull String cipherAlgorithm,
+                         int saltLength,
                          int iterationCount)
             throws CryptoException {
-        super(keyLength, keyDerivationAlgorithm, cipherAlgorithm, iterationCount);
+        super(keyLength, keyDerivationAlgorithm, cipherAlgorithm, saltLength, iterationCount);
     }
 
     /**

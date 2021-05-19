@@ -33,6 +33,7 @@ public class CipherHandler {
     private final int mKeyLength;
     private final String mKeyDerivationAlgorithm;
     private final String mCipherAlgorithm;
+    private final int mSaltLength;
     private final int mIterationCount;
 
     private String mFeedbackMode;
@@ -42,11 +43,13 @@ public class CipherHandler {
     public CipherHandler(int keyLength,
                          @NonNull String keyDerivationAlgorithm,
                          @NonNull String cipherAlgorithm,
+                         int saltLength,
                          int iterationCount)
             throws CryptoException {
         this.mKeyLength = keyLength;
         this.mKeyDerivationAlgorithm = keyDerivationAlgorithm;
         this.mCipherAlgorithm = cipherAlgorithm;
+        this.mSaltLength = saltLength;
         this.mIterationCount = iterationCount;
     }
 
@@ -58,12 +61,20 @@ public class CipherHandler {
         switch (mFeedbackMode) {
             case "CBC":
                 mCipherModeCBC = new CipherModeCBC(
-                        mKeyLength, mKeyDerivationAlgorithm, mCipherAlgorithm, mIterationCount);
+                        mKeyLength,
+                        mKeyDerivationAlgorithm,
+                        mCipherAlgorithm,
+                        mSaltLength,
+                        mIterationCount);
                 mCipherModeCBC.setTransformation(cipherAlgorithm, feedbackMode, paddingScheme);
                 break;
             case "GCM":
                 mCipherModeGCM = new CipherModeGCM(
-                        mKeyLength, mKeyDerivationAlgorithm, mCipherAlgorithm, mIterationCount);
+                        mKeyLength,
+                        mKeyDerivationAlgorithm,
+                        mCipherAlgorithm,
+                        mSaltLength,
+                        mIterationCount);
                 mCipherModeGCM.setTransformation(cipherAlgorithm, feedbackMode, paddingScheme);
                 break;
             default:

@@ -33,6 +33,7 @@ import org.junit.Assert.assertEquals
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertTrue
 import java.io.File
+import java.util.*
 
 typealias WriterOp = (AsyncMessageWriter<*>) -> Unit
 typealias ReaderOp = (AsyncMessageReader<*>) -> Unit
@@ -458,7 +459,7 @@ class ValueTypeTest {
                 type: mqtt
                 topic: test-sinetstream-android-20191021
                 brokers: mqtt.vcp-handson.org
-                value_type: ${valueType.toString().toLowerCase()}
+                value_type: ${valueType.toString().lowercase(Locale.getDefault())}
             """.trimIndent()
             )
         }

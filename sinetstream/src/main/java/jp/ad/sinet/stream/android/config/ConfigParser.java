@@ -221,6 +221,11 @@ public class ConfigParser {
         return ((parsedValue != null) ? parsedValue : "");
     }
 
+    public int getSaltBytes() {
+        Integer parsedValue = mCryptoParser.getSaltBytes();
+        return ((parsedValue != null) ? parsedValue : 0);
+    }
+
     public int getIterationCount() {
         Integer parsedValue = mCryptoParser.getIteration();
         return ((parsedValue != null) ? parsedValue : 0);

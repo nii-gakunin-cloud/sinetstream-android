@@ -77,7 +77,7 @@ public class CryptoParser extends BaseParser {
         return mAlgorithm;
     }
 
-    private Integer mKeyLength = null;
+    private Integer mKeyLength = 128; /* default */
     private void parseKeyLength(@NonNull Map<String,Object> myParams)
             throws InvalidConfigurationException {
         String key = "key_length"; /* Optional */
@@ -96,8 +96,6 @@ public class CryptoParser extends BaseParser {
                                 key + "(" + parsedValue + "): Out of range", null);
                 }
             }
-        } else {
-            mKeyLength = 128; /* default */
         }
     }
 
@@ -138,17 +136,25 @@ public class CryptoParser extends BaseParser {
         return mMode;
     }
 
-    private String mPadding = null;
+    private String mPadding = "NoPadding"; /* default */
     private void parsePadding(@NonNull Map<String,Object> myParams)
             throws InvalidConfigurationException {
-        String key = "padding"; /* Mandatory */
-        String parsedValue = super.parseString(myParams, key, true);
+        String key = "padding"; /* Optional */
+        String parsedValue = super.parseString(myParams, key, false);
         if (parsedValue != null) {
             /*
              * Cipher Algorithm Padding
              * https://docs.oracle.com/javase/8/docs/technotes/guides/security/StandardNames.html#pkcs5Pad
              */
             switch (parsedValue) {
+                case "none":
+                    mPadding = "NoPadding";
+                    break;
+                case "pkcs7":
+                    mPadding = "PKCS5Padding";
+                    break;
+
+                /* Future work */
                 case "NoPadding":
                 case "ISO10126Padding":
                 case "OAEPPadding":
@@ -192,7 +198,7 @@ public class CryptoParser extends BaseParser {
         if (parent != null) {
             mKeyDerivation = true;
             parseKeyDerivationAlgorithm(parent);
-            //parseSaltBytes(parent);  /* SaltBytes can be calculated by KeyLength */
+            parseSaltBytes(parent);
             parseIteration(parent);
         }
     }
@@ -202,16 +208,21 @@ public class CryptoParser extends BaseParser {
         return mKeyDerivation;
     }
 
-    private String mKeyDerivationAlgorithm = null;
+    private String mKeyDerivationAlgorithm = "PBKDF2WithHmacSHA256"; /* default */
     private void parseKeyDerivationAlgorithm(@NonNull Map<String,Object> myParams)
             throws InvalidConfigurationException {
-        String key = "algorithm"; /* Mandatory */
-        String parsedValue = super.parseString(myParams, key, true);
+        String key = "algorithm"; /* Optional */
+        String parsedValue = super.parseString(myParams, key, false);
         if (parsedValue != null) {
             /*
              * https://docs.oracle.com/javase/8/docs/technotes/guides/security/StandardNames.html#SecretKeyFactory
              */
             switch (parsedValue) {
+                case "pbkdf2":
+                    mKeyDerivationAlgorithm = "PBKDF2WithHmacSHA256";
+                    break;
+
+                /* Future work */
                 case "AES":
                 case "ARCFOUR":
                 case "DES":
@@ -237,11 +248,11 @@ public class CryptoParser extends BaseParser {
         return mKeyDerivationAlgorithm;
     }
 
-    private Integer mSaltBytes = null;
+    private Integer mSaltBytes = 8; /* default */
     private void parseSaltBytes(@NonNull Map<String,Object> myParams)
             throws InvalidConfigurationException {
-        String key = "salt_bytes"; /* Mandatory */
-        Number parsedValue = super.parseNumber(myParams, key, true);
+        String key = "salt_bytes"; /* Optional */
+        Number parsedValue = super.parseNumber(myParams, key, false);
         if (parsedValue != null) {
             if (parsedValue instanceof Integer) {
                 Integer probe = (Integer) parsedValue;
@@ -260,11 +271,11 @@ public class CryptoParser extends BaseParser {
         return mSaltBytes;
     }
 
-    private Integer mIteration = null;
+    private Integer mIteration = 10000; /* default */
     private void parseIteration(@NonNull Map<String,Object> myParams)
             throws InvalidConfigurationException {
-        String key = "iteration"; /* Mandatory */
-        Number parsedValue = super.parseNumber(myParams, key, true);
+        String key = "iteration"; /* Optional */
+        Number parsedValue = super.parseNumber(myParams, key, false);
         if (parsedValue != null) {
             if (parsedValue instanceof Integer) {
                 Integer probe = (Integer) parsedValue;

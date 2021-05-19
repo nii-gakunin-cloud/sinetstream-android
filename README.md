@@ -17,7 +17,7 @@ software distributed under the License is distributed on an
 KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
---->
+-->
 
 # SINETStream for Android
 
@@ -79,7 +79,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'jp.ad.sinet.stream.android:sinetstream-android:1.5.1'
+    implementation 'jp.ad.sinet.stream.android:sinetstream-android:1.5.2'
 
     implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
     implementation 'org.eclipse.paho:org.eclipse.paho.android.service:1.1.1'

@@ -34,21 +34,28 @@ abstract class CipherBase {
     public String mTransformation = null;
 
     /**
-     * Constructor -- Allocates a KeyUtil instance
+     * Constructor -- Allocates a CipherBase instance
      *
      * @param keyLength  -- Byte length of a secret key to be generated
      * @param keyDerivationAlgorithm  -- Secret key derivation algorithm name, 
-     *                                such like PBKDF2WithHmacSHA256
-     * @param cipherAlgorithm -- Cipher algorithm name, such like AES
+     *                                such like "PBKDF2WithHmacSHA256"
+     * @param cipherAlgorithm -- Cipher algorithm name, such like "AES"
+     * @param saltLength -- Byte length of a cryptographic salt to be generated
      * @param iterationCount -- Iteration count to be used in block mode
      * @throws CryptoException  -- Invalid parameter cases
      */
     public CipherBase(int keyLength,
                       @NonNull String keyDerivationAlgorithm,
                       @NonNull String cipherAlgorithm,
+                      int saltLength,
                       int iterationCount)
             throws CryptoException {
-        mKeyUtil = new KeyUtil(keyLength, keyDerivationAlgorithm, cipherAlgorithm, iterationCount);
+        mKeyUtil = new KeyUtil(
+                keyLength,
+                keyDerivationAlgorithm,
+                cipherAlgorithm,
+                saltLength,
+                iterationCount);
     }
 
     /**
@@ -84,7 +91,7 @@ abstract class CipherBase {
             throw new CryptoException(
                     "Calling sequence failure", null);
         }
-        return originalData; // As a template, return given data as is.
+        return originalData; // Just return given data as is.
     }
 
     /**
@@ -102,6 +109,6 @@ abstract class CipherBase {
             throw new CryptoException(
                     "Calling sequence failure", null);
         }
-        return encryptedData; // As a template, return given data as is.
+        return encryptedData; // Just return given data as is.
     }
 }

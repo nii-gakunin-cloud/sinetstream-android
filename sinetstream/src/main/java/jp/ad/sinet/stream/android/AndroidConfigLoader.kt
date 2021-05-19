@@ -29,14 +29,11 @@ import java.io.File
 import java.util.*
 
 object AndroidConfigLoader {
-    const val KEY_TOPIC = "topic"
     const val KEY_CONSISTENCY = "consistency"
-    const val KEY_VALUE_TYPE = "value_type"
     const val KEY_BROKERS = "brokers"
     const val KEY_SERIALIZER = "serializer"
     const val KEY_DESERIALIZER = "deserializer"
     const val KEY_TLS = "tls"
-    const val KEY_CLIENT_ID = "client_id"
 
     fun load(dir: File?, serviceName: String): Map<String, Any> {
         val configFile = File(dir, ApiKeys.CONFIG_FILENAME)
@@ -86,7 +83,7 @@ object AndroidConfigLoader {
                 is String -> it.let {
                     try {
                         E::class.java.getMethod("valueOf", String::class.java).invoke(
-                            null, it.toUpperCase(
+                            null, it.uppercase(
                                 Locale.ROOT
                             )
                         ) as E

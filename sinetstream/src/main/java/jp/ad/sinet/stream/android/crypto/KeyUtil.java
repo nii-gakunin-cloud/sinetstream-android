@@ -26,6 +26,8 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
@@ -51,9 +53,21 @@ public class KeyUtil {
     private final String mCipherAlgorithm;
     private final int mIterationCount;
 
+    /**
+     * Constructor -- Allocates a KeyUtil instance
+     *
+     * @param keyLength  -- Byte length of a secret key to be generated
+     * @param keyDerivationAlgorithm -- Secret key derivation algorithm name,
+     *                               such like "PBKDF2WithHmacSHA256"
+     * @param cipherAlgorithm  -- Cipher algorithm name, such like "AES"
+     * @param saltLength  -- Byte length of a cryptographic salt to be generated
+     * @param iterationCount -- Iteration count to be used in block mode
+     * @throws CryptoException  -- Invalid parameter cases
+     */
     public KeyUtil(int keyLength,
                    @NonNull String keyDerivationAlgorithm,
                    @NonNull String cipherAlgorithm,
+                   int saltLength,
                    int iterationCount)
             throws CryptoException {
         /*
@@ -61,10 +75,19 @@ public class KeyUtil {
          */
         if (keyLength >= 8 && (keyLength % 8 == 0)) {
             this.mKeyLength = keyLength;
-            this.mSaltLength = KeyLength2SaltLength(keyLength);
         } else {
             Log.e(TAG, "Invalid Key length: " + keyLength);
             throw new CryptoException(TAG + "Invalid Key length: " + keyLength, null);
+        }
+
+        /*
+         * The salt value is generated at random and can be any length.
+         */
+        if (saltLength > 0) {
+            this.mSaltLength = saltLength;
+        } else {
+            Log.e(TAG, "Invalid Salt length: " + saltLength);
+            throw new CryptoException(TAG + "Invalid Salt length: " + saltLength, null);
         }
 
         this.mKeyDerivationAlgorithm = keyDerivationAlgorithm;
@@ -72,7 +95,16 @@ public class KeyUtil {
         this.mIterationCount = iterationCount;
     }
 
-    public final byte[] generateSalt() throws CryptoException {
+    /**
+     * Generates a cryptographic
+     * <a href="https://en.wikipedia.org/wiki/Salt_(cryptography)">salt</a>,
+     * which is a safeguard to ensure uniqueness of the hashed value calculated
+     * from "password + salt", not just "password".
+     *
+     * @return The user-specified number of random bytes
+     */
+    @NotNull
+    public final byte[] generateSalt() {
         byte[] salt = new byte[mSaltLength];
 
         SecureRandom secureRandom = new SecureRandom();
@@ -81,30 +113,40 @@ public class KeyUtil {
         return salt;
     }
 
-    /*
-     * Generate a secret key by password, which is introduced in blog articles[1][2].
+    /**
+     * Generates a secret key by password, which is introduced in blog articles[1][2].
      *
-     * [1] Security "Crypto" provider deprecated in Android N
-     * https://android-developers.googleblog.com/2016/06/security-crypto-provider-deprecated-in.html
+     * <p>
+     *     [1]
+     *     <a href="https://android-developers.googleblog.com/2016/06/security-crypto-provider-deprecated-in.html">
+     *         Security "Crypto" provider deprecated in Android N
+     *     </a>
+     *     <br>
+     *     [2]
+     *     <a href="https://nelenkov.blogspot.com/2012/04/using-password-based-encryption-on.html">
+     *         Using Password-based Encryption on Android
+     *     </a>
+     * </p>
      *
-     * [2] Using Password-based Encryption on Android
-     * https://nelenkov.blogspot.com/2012/04/using-password-based-encryption-on.html
+     * @param password -- User-specified plaintext password
+     * @param salt -- Random bytes to be concatenated with the password
+     * @return The generated SecretKey object
+     * @throws CryptoException -- Invalid parameter cases
      */
     public final SecretKey getSecretKeyByPassword(
             @NonNull String password, @NonNull byte[] salt)
             throws CryptoException {
-
-        if (SaltLength2KeyLength(salt.length) != mKeyLength) {
-            Log.e(TAG, "Invalid salt length: " + salt.length);
-            throw new CryptoException(TAG + "Invalid salt length: " + salt.length, null);
+        /* Use this to derive the key from the password: */
+        KeySpec keySpec;
+        try {
+            keySpec = new PBEKeySpec(
+                    password.toCharArray(), salt, mIterationCount, mKeyLength);
+        } catch (NullPointerException | IllegalArgumentException e) {
+            Log.e(TAG, "PBEKeySpec: " + e.getMessage());
+            throw new CryptoException("PBEKeySpec", e);
         }
 
-        /* Use this to derive the key from the password: */
-        KeySpec keySpec = new PBEKeySpec(
-                password.toCharArray(), salt, mIterationCount, mKeyLength);
-
         SecretKeyFactory keyFactory;
-        //final String algorithm = "PBKDF2WithHmacSHA1";
         try {
             keyFactory = SecretKeyFactory.getInstance(mKeyDerivationAlgorithm);
         } catch (NoSuchAlgorithmException e) {
@@ -131,6 +173,14 @@ public class KeyUtil {
         return key;
     }
 
+    /**
+     * Generates an
+     * <a href="https://docs.oracle.com/javase/8/docs/api/javax/crypto/spec/IvParameterSpec.html">IvParameterSpec</a>
+     * object.
+     *
+     * @param cipher -- A Cipher object which holds the block size of the algorithm
+     * @return The generated IvParameterSpec object
+     */
     @Nullable
     public final IvParameterSpec getIvParameterSpec(@NonNull Cipher cipher) {
         /* Uncomment only in debug phase
@@ -143,18 +193,28 @@ public class KeyUtil {
          * [NB] Initial Vector must be specified in CBC mode
          */
         IvParameterSpec ivParameterSpec = null;
-        if (cipher.getBlockSize() > 0) {
-            int blocksize = cipher.getBlockSize();
-            byte[] iv = new byte[blocksize];
+        int blockSize = cipher.getBlockSize();
+        if (blockSize > 0) {
+            byte[] iv = new byte[blockSize];
             SecureRandom secureRandom = new SecureRandom();
             secureRandom.nextBytes(iv);
             ivParameterSpec = new IvParameterSpec(iv);
+        } else {
+            Log.w(TAG, cipher.getAlgorithm() + ": Not a block cipher");
         }
         return ivParameterSpec;
     }
 
-    /*
-     * https://docs.oracle.com/javase/8/docs/api/javax/crypto/spec/GCMParameterSpec.html
+    /**
+     * Generates a
+     * <a href="https://docs.oracle.com/javase/8/docs/api/javax/crypto/spec/GCMParameterSpec.html">GCMParameterSpec</a>
+     * instance.
+     *
+     * @param cipher -- A Cipher object which holds the block size of the algorithm
+     * @param authTagBits -- The authentication tag length (in bits)
+     * @param initialVector -- The initial vector bytes
+     * @return The generated GCMParameterSpec object
+     * @throws CryptoException -- Invalid parameter cases
      */
     @Nullable
     public final GCMParameterSpec getGCMParameterSpec(
@@ -180,21 +240,37 @@ public class KeyUtil {
          * [NB] Initial Vector must be specified in GCM mode
          */
         GCMParameterSpec gcmParameterSpec = null;
-        if (cipher.getBlockSize() > 0) {
+        int blockSize = cipher.getBlockSize();
+        if (blockSize > 0) {
             byte[] iv;
             if (initialVector != null) {
                 iv = initialVector;
             } else {
-                int blocksize = cipher.getBlockSize();
-                iv = new byte[blocksize]; /* a.k.a. nonce */
+                iv = new byte[blockSize]; /* a.k.a. nonce */
                 SecureRandom secureRandom = new SecureRandom();
                 secureRandom.nextBytes(iv);
             }
-            gcmParameterSpec = new GCMParameterSpec(authTagBits, iv);
+
+            try {
+                gcmParameterSpec = new GCMParameterSpec(authTagBits, iv);
+            } catch (IllegalArgumentException e) {
+                Log.e(TAG, "GCMParameterSpec: " + e.getMessage());
+                throw new CryptoException("GCMParameterSpec", e);
+            }
+        } else {
+            Log.w(TAG, cipher.getAlgorithm() + ": Not a block cipher");
         }
         return gcmParameterSpec;
     }
 
+    /**
+     * Generates an
+     * <a href="https://en.wikipedia.org/wiki/Initialization_vector">initialization vector</a>
+     * data.
+     *
+     * @param length -- The byte length of the IV, which can be any positive integer
+     * @return The random bytes of the specified length
+     */
     public byte[] generateGCMInitializationVector(int length) {
         byte[] iv = new byte[length];
         SecureRandom secureRandom = new SecureRandom();
@@ -202,18 +278,11 @@ public class KeyUtil {
         return iv;
     }
 
-    public byte[] generateAdditionalAuthenticatedData(int length) {
-        return new SecureRandom().generateSeed(length);
-    }
-
-    private int KeyLength2SaltLength(int KeyLength) {
-        return KeyLength / 8;
-    }
-
-    private int SaltLength2KeyLength(int SaltLength) {
-        return SaltLength * 8;
-    }
-
+    /**
+     * Returns the salt length specified at the constructor
+     *
+     * @return The salt length in bytes
+     */
     public final int getSaltLength() {
         return mSaltLength;
     }

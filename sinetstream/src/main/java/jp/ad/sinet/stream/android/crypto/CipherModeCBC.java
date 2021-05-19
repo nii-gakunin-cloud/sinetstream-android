@@ -43,21 +43,23 @@ public class CipherModeCBC extends CipherBase {
     private final String TAG = CipherModeCBC.class.getSimpleName();
 
     /**
-     * Constructor -- Allocates a KeyUtil instance
+     * Constructor -- Allocates a CipherModeCBC instance
      *
-     * @param keyLength              -- Byte length of a secret key to be generated
+     * @param keyLength -- Byte length of a secret key to be generated
      * @param keyDerivationAlgorithm -- Secret key derivation algorithm name,
-     *                               such like PBKDF2WithHmacSHA256
-     * @param cipherAlgorithm        -- Cipher algorithm name, such like AES
-     * @param iterationCount         -- Iteration count to be used in block mode
+     *                               such like "PBKDF2WithHmacSHA256"
+     * @param cipherAlgorithm -- Cipher algorithm name, such like "AES"
+     * @param saltLength -- Byte length of a cryptographic salt to be generated
+     * @param iterationCount -- Iteration count to be used in block mode
      * @throws CryptoException -- Invalid parameter cases
      */
     public CipherModeCBC(int keyLength,
                          @NonNull String keyDerivationAlgorithm,
                          @NonNull String cipherAlgorithm,
+                         int saltLength,
                          int iterationCount)
             throws CryptoException {
-        super(keyLength, keyDerivationAlgorithm, cipherAlgorithm, iterationCount);
+        super(keyLength, keyDerivationAlgorithm, cipherAlgorithm, saltLength, iterationCount);
     }
 
     /**

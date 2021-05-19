@@ -156,6 +156,7 @@ abstract class MqttMessageIO(
                     configParser.keyLength,
                     configParser.keyDerivationAlgorithm,
                     configParser.cryptoAlgorithm,
+                    configParser.saltBytes,
                     configParser.iterationCount)
 
             cipherHandler.setTransformation(
@@ -275,32 +276,35 @@ class MqttAsyncMessageReader<T>(
                 }
             })
         } catch (exception: MqttException) {
-            mCallback.onError("connect: NG", exception)
+            mCallback.onError("connect: EX", exception)
         }
     }
 
     override fun disconnect() {
-        if (client.isConnected) {
-            Log.d(TAG, "Going to DISCONNECT " + dumpServerUris())
-            try {
-                client.disconnect(null, object : IMqttActionListener {
-                    override fun onSuccess(asyncActionToken: IMqttToken) {
-                        Log.d(TAG, "disconnect: OK")
-                        mCallback.onConnectionClosed(null/* Normal closure */)
-                    }
+        /*
+         * Once the connection with the broker has established, it is
+         * completely okay to call MqttAndroid.disconnect() at any time.
+         *
+         * On the other hand, if we abort the ongoing connection request,
+         * we need to call MqttAndroid.disconnect() to clean the internal
+         * state of the MqttService.
+         */
+        Log.d(TAG, "Going to DISCONNECT " + dumpServerUris())
+        try {
+            client.disconnect(null, object : IMqttActionListener {
+                override fun onSuccess(asyncActionToken: IMqttToken) {
+                    Log.d(TAG, "disconnect: OK")
+                    mCallback.onConnectionClosed(null/* Normal closure */)
+                }
 
-                    override fun onFailure(asyncActionToken: IMqttToken, exception: Throwable) {
-                        mCallback.onError("disconnect: NG", exception)
-                    }
-                })
-            } catch (exception: MqttException) {
-                mCallback.onError("disconnect: NG", exception)
-            } catch (exception: IllegalArgumentException) {
-                mCallback.onError("disconnect: NG", exception)
-            }
-        } else {
-            //mCallback.onError("disconnect: Not yet connected", null)
-            Log.w(TAG, "disconnect: Not yet connected")
+                override fun onFailure(asyncActionToken: IMqttToken, exception: Throwable) {
+                    mCallback.onError("disconnect: NG", exception)
+                }
+            })
+        } catch (exception: MqttException) {
+            mCallback.onError("disconnect: EX", exception)
+        } catch (exception: IllegalArgumentException) {
+            mCallback.onError("disconnect: EX", exception)
         }
     }
 
@@ -331,11 +335,11 @@ class MqttAsyncMessageReader<T>(
                         }
                     })
             } catch (exception: MqttSecurityException) {
-                mCallback.onError("subscribe: NG", exception)
+                mCallback.onError("subscribe: EX", exception)
             } catch (exception: MqttException) {
-                mCallback.onError("subscribe: NG", exception)
+                mCallback.onError("subscribe: EX", exception)
             } catch (exception: IllegalArgumentException) {
-                mCallback.onError("subscribe: NG", exception)
+                mCallback.onError("subscribe: EX", exception)
             }
         } else {
             mCallback.onError("subscribe: Not yet connected", null)
@@ -369,7 +373,7 @@ class MqttAsyncMessageReader<T>(
                         }
                     })
             } catch (exception: MqttException) {
-                mCallback.onError("unsubscribe: NG", exception)
+                mCallback.onError("unsubscribe: EX", exception)
             }
         } else {
             mCallback.onError("unsubscribe: Not yet connected", null)
@@ -476,30 +480,33 @@ class MqttAsyncMessageWriter<T>(
                 }
             })
         } catch (exception: MqttException) {
-            mCallback.onError("connect: NG", exception)
+            mCallback.onError("connect: EX", exception)
         }
     }
 
     override fun disconnect() {
-        if (client.isConnected) {
-            Log.d(TAG, "Going to DISCONNECT " + dumpServerUris())
-            try {
-                client.disconnect(null, object : IMqttActionListener {
-                    override fun onSuccess(asyncActionToken: IMqttToken) {
-                        Log.d(TAG, "disconnect: OK")
-                        mCallback.onConnectionClosed(null/* Normal closure */)
-                    }
+        /*
+         * Once the connection with the broker has established, it is
+         * completely okay to call MqttAndroid.disconnect() at any time.
+         *
+         * On the other hand, if we abort the ongoing connection request,
+         * we need to call MqttAndroid.disconnect() to clean the internal
+         * state of the MqttService.
+         */
+        Log.d(TAG, "Going to DISCONNECT " + dumpServerUris())
+        try {
+            client.disconnect(null, object : IMqttActionListener {
+                override fun onSuccess(asyncActionToken: IMqttToken) {
+                    Log.d(TAG, "disconnect: OK")
+                    mCallback.onConnectionClosed(null/* Normal closure */)
+                }
 
-                    override fun onFailure(asyncActionToken: IMqttToken, exception: Throwable) {
-                        mCallback.onError("disconnect: NG", exception)
-                    }
-                })
-            } catch (exception: MqttException) {
-                mCallback.onError("disconnect: NG", exception)
-            }
-        } else {
-            //mCallback.onError("disconnect: Not yet connected", null)
-            Log.w(TAG, "disconnect: Not yet connected")
+                override fun onFailure(asyncActionToken: IMqttToken, exception: Throwable) {
+                    mCallback.onError("disconnect: NG", exception)
+                }
+            })
+        } catch (exception: MqttException) {
+            mCallback.onError("disconnect: EX", exception)
         }
     }
 
@@ -536,13 +543,13 @@ class MqttAsyncMessageWriter<T>(
                         }
                     })
             } catch (exception: MqttPersistenceException) {
-                mCallback.onError("publish: NG", exception)
+                mCallback.onError("publish: EX", exception)
             } catch (exception: IllegalArgumentException) {
-                mCallback.onError("publish: NG", exception)
+                mCallback.onError("publish: EX", exception)
             } catch (exception: MqttException) {
-                mCallback.onError("publish: NG", exception)
+                mCallback.onError("publish: EX", exception)
             } catch (exception: ClassCastException) {
-                mCallback.onError("publish: NG", exception)
+                mCallback.onError("publish: EX", exception)
             }
         } else {
             mCallback.onError("Publish: Not yet connected", null)
