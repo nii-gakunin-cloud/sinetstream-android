@@ -47,7 +47,7 @@ public class TlsUtils {
          * and KeyStore (for Client certificate).
          */
         PrivateCertHandler privateCertHandler = new PrivateCertHandler(context);
-        SSLContext sslContext = privateCertHandler.getSSLContext(
+        SSLContext sslContext = privateCertHandler.buildSSLContextFromLocalFiles(
                 mServerCertificate, mClientCertificate, mClientPassword);
 
         return sslContext.getSocketFactory();

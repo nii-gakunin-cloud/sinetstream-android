@@ -45,7 +45,12 @@ public class MqttParser extends BaseParser {
         parseMaxInflightMessagesSet(myParams);
         parseLwtSet(myParams);
         parseMqttConnect(myParams);
-        parseMaxReconnectDelay(myParams);
+
+        Boolean automaticReconnect = getAutomaticReconnect();
+        if (Boolean.TRUE.equals(automaticReconnect)) { /* Treat null as false */
+            parseMaxReconnectDelay(myParams);
+        }
+        parseMqttDebug(myParams);
     }
 
     private Boolean mCleanSession = null;
@@ -65,6 +70,11 @@ public class MqttParser extends BaseParser {
             throws InvalidConfigurationException {
         String key = "protocol"; /* Optional */
         String parsedValue = super.parseString(myParams, key, false);
+        if (parsedValue == null) {
+            /* Try alias */
+            key = "mqtt_version"; /* Optional */
+            parsedValue = super.parseString(myParams, key, false);
+        }
         if (parsedValue != null) {
             switch (parsedValue) {
                 case "MQTTv31":
@@ -409,25 +419,6 @@ public class MqttParser extends BaseParser {
     /*
      * Reconnect part
      */
-    private Boolean mReconnectParameters = null;
-    public void parseMqttReconnect(@NonNull Map<String,Object> myParams)
-            throws InvalidConfigurationException {
-        String key = "reconnect_delay_set"; /* Optional */
-        Map<String,Object> parent = super.parseMap(myParams, key, false);
-        if (parent != null) {
-            mReconnectParameters = true;
-
-            parseKeepAliveInterval(parent);
-            parseAutomaticReconnect(parent);
-            parseConnectionTimeout(parent);
-        }
-    }
-
-    @Nullable
-    public final Boolean hasReconnectParameters() {
-        return mReconnectParameters;
-    }
-
     private Integer mMaxReconnectDelay = null;
     private void parseMaxReconnectDelay(@NonNull Map<String,Object> myParams)
             throws InvalidConfigurationException {
@@ -441,7 +432,7 @@ public class MqttParser extends BaseParser {
                     throw new InvalidConfigurationException(
                             key + ": Out of range (" + parsedValue + ")", null);
                 }
-                mMaxReconnectDelay = intValue * 1000; /* seconds -> milliseconds */
+                mMaxReconnectDelay = intValue; /* milliseconds */
             } else {
                 throw new InvalidConfigurationException(
                         key + ": Not an Integer (" + parsedValue + ")", null);
@@ -452,5 +443,17 @@ public class MqttParser extends BaseParser {
     @Nullable
     public final Integer getMaxReconnectDelay() {
         return mMaxReconnectDelay;
+    }
+
+    private Boolean mMqttDebugEnabled = null;
+    private void parseMqttDebug(@NonNull Map<String,Object> myParams)
+            throws InvalidConfigurationException {
+        String key = "mqtt_debug"; /* Optional */
+        mMqttDebugEnabled = super.parseBoolean(myParams, key, false);
+    }
+
+    @Nullable
+    public final Boolean getMqttDebug() {
+        return mMqttDebugEnabled;
     }
 }

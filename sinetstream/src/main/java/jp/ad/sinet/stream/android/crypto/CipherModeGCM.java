@@ -94,9 +94,9 @@ public class CipherModeGCM extends CipherBase {
             throws CryptoException {
         super.encrypt(originalData, password);
 
-        /* Uncomment only in debug phase
-        Log.d(TAG, "ENCRYPT: originalData(" + originalData.length + ")" + Arrays.toString(originalData));
-         */
+        if (mCryptoDebugEnabled) {
+            Log.d(TAG, "ENCRYPT: originalData(" + originalData.length + ")" + Arrays.toString(originalData));
+        }
 
         /*
          * Allocate a Cipher instance for encryption.
@@ -120,15 +120,15 @@ public class CipherModeGCM extends CipherBase {
         byte[] iv = mKeyUtil.generateGCMInitializationVector(GCM_IV_BYTES);
         GCMParameterSpec gcmParameterSpec =
                 mKeyUtil.getGCMParameterSpec(cipher, tlen, iv);
-        /* Uncomment only in debug phase
-        if (gcmParameterSpec != null) {
-            Log.d(TAG, "ENCRYPT: GCMParameterSpec{" +
-                    "tlen(" + gcmParameterSpec.getTLen() + ")," +
-                    "iv(" + Arrays.toString(gcmParameterSpec.getIV()) + ")}");
-        } else {
-            Log.d(TAG, "ENCRYPT: GCMParameterSpec(null)");
+        if (mCryptoDebugEnabled) {
+            if (gcmParameterSpec != null) {
+                Log.d(TAG, "ENCRYPT: GCMParameterSpec{" +
+                        "tlen(" + gcmParameterSpec.getTLen() + ")," +
+                        "iv(" + Arrays.toString(gcmParameterSpec.getIV()) + ")}");
+            } else {
+                Log.d(TAG, "ENCRYPT: GCMParameterSpec(null)");
+            }
         }
-         */
 
         try {
             cipher.init(Cipher.ENCRYPT_MODE, secretKey, gcmParameterSpec);
@@ -203,12 +203,12 @@ public class CipherModeGCM extends CipherBase {
         offset += opaque.length;
         System.arraycopy(authtag, 0, encryptedData, offset, authtag.length);
 
-        /* Uncomment only in debug phase
-        Log.d(TAG, "ENCRYPT: salt(" + salt.length + ")" + Arrays.toString(salt));
-        Log.d(TAG, "ENCRYPT: iv(" + iv.length + ")" + Arrays.toString(iv));
-        Log.d(TAG, "ENCRYPT: opaque(" + opaque.length + ")" + Arrays.toString(opaque));
-        Log.d(TAG, "ENCRYPT: authtag(" + authtag.length + ")" + Arrays.toString(authtag));
-         */
+        if (mCryptoDebugEnabled) {
+            Log.d(TAG, "ENCRYPT: salt(" + salt.length + ")" + Arrays.toString(salt));
+            Log.d(TAG, "ENCRYPT: iv(" + iv.length + ")" + Arrays.toString(iv));
+            Log.d(TAG, "ENCRYPT: opaque(" + opaque.length + ")" + Arrays.toString(opaque));
+            Log.d(TAG, "ENCRYPT: authtag(" + authtag.length + ")" + Arrays.toString(authtag));
+        }
 
         return encryptedData;
     }
@@ -267,12 +267,12 @@ public class CipherModeGCM extends CipherBase {
         offset += opaque.length;
         System.arraycopy(encryptedData, offset, authtag, 0, authtag.length);
 
-        /* Uncomment only in debug phase
-        Log.d(TAG, "DECRYPT: salt(" + salt.length + ")" + Arrays.toString(salt));
-        Log.d(TAG, "DECRYPT: iv(" + iv.length + ")" + Arrays.toString(iv));
-        Log.d(TAG, "DECRYPT: opaque(" + opaque.length + ")" + Arrays.toString(opaque));
-        Log.d(TAG, "DECRYPT: authtag(" + authtag.length + ")" + Arrays.toString(authtag));
-         */
+        if (mCryptoDebugEnabled) {
+            Log.d(TAG, "DECRYPT: salt(" + salt.length + ")" + Arrays.toString(salt));
+            Log.d(TAG, "DECRYPT: iv(" + iv.length + ")" + Arrays.toString(iv));
+            Log.d(TAG, "DECRYPT: opaque(" + opaque.length + ")" + Arrays.toString(opaque));
+            Log.d(TAG, "DECRYPT: authtag(" + authtag.length + ")" + Arrays.toString(authtag));
+        }
 
         /*
          * Build probe from opaque and authentication tag.
@@ -296,15 +296,15 @@ public class CipherModeGCM extends CipherBase {
         int tlen = authtag.length * 8; /* bytes -> bits */
         GCMParameterSpec gcmParameterSpec =
                 mKeyUtil.getGCMParameterSpec(cipher, tlen, iv);
-        /* Uncomment only in debug phase
-        if (gcmParameterSpec != null) {
-            Log.d(TAG, "DECRYPT: GCMParameterSpec{" +
-                    "tlen(" + gcmParameterSpec.getTLen() + ")," +
-                    "iv(" + Arrays.toString(gcmParameterSpec.getIV()) + ")}");
-        } else {
-            Log.d(TAG, "DECRYPT: GCMParameterSpec(null)");
+        if (mCryptoDebugEnabled) {
+            if (gcmParameterSpec != null) {
+                Log.d(TAG, "DECRYPT: GCMParameterSpec{" +
+                        "tlen(" + gcmParameterSpec.getTLen() + ")," +
+                        "iv(" + Arrays.toString(gcmParameterSpec.getIV()) + ")}");
+            } else {
+                Log.d(TAG, "DECRYPT: GCMParameterSpec(null)");
+            }
         }
-         */
 
         try {
             cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmParameterSpec);
@@ -343,9 +343,9 @@ public class CipherModeGCM extends CipherBase {
                     "DECRYPT: Cipher.doFinal(): " + e.getMessage(), e.getCause());
         }
 
-        /* Uncomment only in debug phase
-        Log.d(TAG, "DECRYPT: originalData(" + originalData.length + ")" + Arrays.toString(originalData));
-         */
+        if (mCryptoDebugEnabled) {
+            Log.d(TAG, "DECRYPT: originalData(" + originalData.length + ")" + Arrays.toString(originalData));
+        }
 
         return originalData;
     }

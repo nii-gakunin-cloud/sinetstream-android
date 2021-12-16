@@ -52,6 +52,7 @@ public class KeyUtil {
     private final String mKeyDerivationAlgorithm;
     private final String mCipherAlgorithm;
     private final int mIterationCount;
+    private boolean mCryptoDebugEnabled = false;
 
     /**
      * Constructor -- Allocates a KeyUtil instance
@@ -93,6 +94,11 @@ public class KeyUtil {
         this.mKeyDerivationAlgorithm = keyDerivationAlgorithm;
         this.mCipherAlgorithm = cipherAlgorithm;
         this.mIterationCount = iterationCount;
+    }
+
+    public void setDebugMode(boolean debugEnabled) {
+        /* NB: Enabling debug degrades performance */
+        mCryptoDebugEnabled = debugEnabled;
     }
 
     /**
@@ -183,11 +189,11 @@ public class KeyUtil {
      */
     @Nullable
     public final IvParameterSpec getIvParameterSpec(@NonNull Cipher cipher) {
-        /* Uncomment only in debug phase
-        Log.d(TAG, "Cipher{" +
-                "algorithm(" + cipher.getAlgorithm() + ")," +
-                "blocksize(" + cipher.getBlockSize() + ")}");
-         */
+        if (mCryptoDebugEnabled) {
+            Log.d(TAG, "Cipher{" +
+                    "algorithm(" + cipher.getAlgorithm() + ")," +
+                    "blocksize(" + cipher.getBlockSize() + ")}");
+        }
 
         /*
          * [NB] Initial Vector must be specified in CBC mode
@@ -222,11 +228,11 @@ public class KeyUtil {
             int authTagBits,
             @Nullable byte[] initialVector)
             throws CryptoException {
-        /* Uncomment only in debug phase
-        Log.d(TAG, "Cipher{" +
-                "algorithm(" + cipher.getAlgorithm() + ")," +
-                "blocksize(" + cipher.getBlockSize() + ")}");
-         */
+        if (mCryptoDebugEnabled) {
+            Log.d(TAG, "Cipher{" +
+                    "algorithm(" + cipher.getAlgorithm() + ")," +
+                    "blocksize(" + cipher.getBlockSize() + ")}");
+        }
 
         /*
          * Auth tag length must be multiple of 8.

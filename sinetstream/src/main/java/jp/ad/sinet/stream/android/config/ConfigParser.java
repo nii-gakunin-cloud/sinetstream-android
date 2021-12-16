@@ -164,6 +164,25 @@ public class ConfigParser {
         return valueType;
     }
 
+    public String getSSLContextProtocol() {
+        return mTlsParser.getProtocol();
+    }
+
+    public boolean useTlsServerCertificate() {
+        boolean enabled = false;
+        Boolean parsedValue;
+        if ((parsedValue =
+                mTlsParser.getSelfSignedServerCertificateEnabled()) != null) {
+            enabled = parsedValue;
+        }
+        return enabled;
+    }
+
+    @Nullable
+    public String getClientCertificateAlias() {
+        return mTlsParser.getClientCertificateAlias(); // NB: might be null
+    }
+
     public boolean getRetain() {
         boolean retain = false;
         Boolean parsedValue;
@@ -171,6 +190,15 @@ public class ConfigParser {
             retain = parsedValue;
         }
         return retain;
+    }
+
+    public boolean mqttDebugEnabled() {
+        boolean enabled = false;
+        Boolean parsedValue;
+        if ((parsedValue = mMqttParser.getMqttDebug()) != null) {
+            enabled = parsedValue;
+        }
+        return enabled;
     }
 
     private boolean hasDataEncryption() {
@@ -229,5 +257,10 @@ public class ConfigParser {
     public int getIterationCount() {
         Integer parsedValue = mCryptoParser.getIteration();
         return ((parsedValue != null) ? parsedValue : 0);
+    }
+
+    public boolean getCryptoDebugEnabled() {
+        Boolean parsedValue = mCryptoParser.getCryptoDebug();
+        return ((parsedValue != null) ? parsedValue : false);
     }
 }

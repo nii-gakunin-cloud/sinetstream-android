@@ -55,7 +55,8 @@ public class CipherHandler {
 
     public void setTransformation(@NonNull String cipherAlgorithm,
                                   @NonNull String feedbackMode,
-                                  @NonNull String paddingScheme)
+                                  @NonNull String paddingScheme,
+                                  boolean debugEnabled)
             throws CryptoException {
         mFeedbackMode = feedbackMode;
         switch (mFeedbackMode) {
@@ -66,6 +67,7 @@ public class CipherHandler {
                         mCipherAlgorithm,
                         mSaltLength,
                         mIterationCount);
+                mCipherModeCBC.setDebugMode(debugEnabled);
                 mCipherModeCBC.setTransformation(cipherAlgorithm, feedbackMode, paddingScheme);
                 break;
             case "GCM":
@@ -75,6 +77,7 @@ public class CipherHandler {
                         mCipherAlgorithm,
                         mSaltLength,
                         mIterationCount);
+                mCipherModeGCM.setDebugMode(debugEnabled);
                 mCipherModeGCM.setTransformation(cipherAlgorithm, feedbackMode, paddingScheme);
                 break;
             default:

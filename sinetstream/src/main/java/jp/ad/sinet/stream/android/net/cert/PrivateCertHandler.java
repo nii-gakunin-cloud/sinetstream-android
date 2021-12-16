@@ -53,7 +53,7 @@ public class PrivateCertHandler {
         this.mContext = context;
     }
 
-    public SSLContext getSSLContext(
+    public SSLContext buildSSLContextFromLocalFiles(
             @Nullable String serverCertificate,
             @Nullable String clientCertificate,
             @Nullable char[] clientPassword) {

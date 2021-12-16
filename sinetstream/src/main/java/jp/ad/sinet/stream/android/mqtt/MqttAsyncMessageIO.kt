@@ -37,6 +37,7 @@ import jp.ad.sinet.stream.android.net.UriBuilder
 import jp.ad.sinet.stream.android.serdes.CompositeDeserializer
 import jp.ad.sinet.stream.android.serdes.CompositeSerializer
 import org.eclipse.paho.android.service.MqttAndroidClient
+import org.eclipse.paho.android.service.MqttTraceHandler
 import org.eclipse.paho.client.mqttv3.*
 import org.eclipse.paho.client.mqttv3.MqttAsyncClient.generateClientId
 import java.util.concurrent.atomic.AtomicBoolean
@@ -57,7 +58,8 @@ abstract class MqttMessageIO(
     context: Context?,
     config: Map<String, Any>
 ) {
-    private val configParser: ConfigParser = ConfigParser()
+    val mContext: Context? = context
+    val configParser: ConfigParser = ConfigParser()
 
     val consistency: Consistency = Consistency.AT_MOST_ONCE // Unused
     val brokerUrl: String = "" // Unused
@@ -68,9 +70,9 @@ abstract class MqttMessageIO(
     val retain: Boolean
     val valueType: ValueType
     val clientId: String
-    val connectOptions: MqttConnectOptions
     val mCipherHandler: CipherHandler?
     val mCryptoPassword: String
+    val mServerUris: Array<String>
 
     protected val client: MqttAndroidClient
     private val isClosed: AtomicBoolean = AtomicBoolean(false)
@@ -85,12 +87,12 @@ abstract class MqttMessageIO(
         clientId = setClientId()
 
         val uriBuilder = UriBuilder(configParser)
-        val serverUris: Array<String> = uriBuilder.buildBrokerUris()
-        client = MqttAndroidClient(context, serverUris[0], clientId)
+        mServerUris = uriBuilder.buildBrokerUris()
+        client = MqttAndroidClient(context, mServerUris[0], clientId)
 
-        val connectOptionBuilder =
-            MqttConnectOptionBuilder(context, configParser, serverUris)
-        connectOptions = connectOptionBuilder.buildMqttConnectOptions()
+        if (configParser.mqttDebugEnabled()) {
+            setMqttTrace()
+        }
 
         if (configParser.cryptoEnabled) {
             mCipherHandler = getCipherHandler()
@@ -114,6 +116,63 @@ abstract class MqttMessageIO(
         }
     }
 
+    private fun setMqttTrace() {
+        client.setTraceEnabled(true)
+        client.setTraceCallback(object: MqttTraceHandler {
+            /**
+             * Trace debugging information
+             *
+             * @param tag
+             * identifier for the source of the trace
+             * @param message
+             * the text to be traced
+             */
+            override fun traceDebug(tag: String?, message: String?) {
+                if (tag != null && message != null) {
+                    Log.d("[TRACE] $tag", message)
+                }
+            }
+
+            /**
+             * Trace error information
+             *
+             * @param tag
+             * identifier for the source of the trace
+             * @param message
+             * the text to be traced
+             */
+            override fun traceError(tag: String?, message: String?) {
+                if (tag != null && message != null) {
+                    Log.e("[TRACE] $tag", message)
+                }
+            }
+
+            /**
+             * trace exceptions
+             *
+             * @param tag
+             * identifier for the source of the trace
+             * @param message
+             * the text to be traced
+             * @param e
+             * the exception
+             */
+            override fun traceException(
+                tag: String?,
+                message: String?,
+                e: java.lang.Exception?
+            ) {
+                if (tag != null && message != null) {
+                    if (e != null) {
+                        Log.e("[TRACE] $tag", message + ": " + e.message)
+                    } else {
+                        Log.e("[TRACE] $tag", message)
+                    }
+                }
+            }
+        })
+    }
+
     private fun setClientId(): String {
         val clientId: String
         val probe: String? = configParser.clientId
@@ -125,11 +184,11 @@ abstract class MqttMessageIO(
         return clientId
     }
 
-    fun dumpServerUris() : String {
-        return if (connectOptions.serverURIs != null) {
+    fun dumpServerUris(connectOptions: MqttConnectOptions?): String {
+        return if (connectOptions?.serverURIs != null) {
             dumpStringArray("Brokers", connectOptions.serverURIs)
         } else {
-            "Broker {" + client.serverURI + "}"
+            ""
         }
     }
 
@@ -162,7 +221,8 @@ abstract class MqttMessageIO(
             cipherHandler.setTransformation(
                     configParser.cryptoAlgorithm,
                     configParser.feedbackMode,
-                    configParser.paddingScheme)
+                    configParser.paddingScheme,
+                    configParser.cryptoDebugEnabled)
         } catch (e: CryptoException) {
             throw CryptoException(e.message, e)
         }
@@ -257,8 +317,37 @@ class MqttAsyncMessageReader<T>(
         })
     }
 
+    /**
+     * Issues an async connect request to the Broker.
+     * NB: Connection parameters will be specified by external configuration file.
+     */
     override fun connect() {
-        Log.d(TAG, "Going to CONNECT " + dumpServerUris())
+        /*
+         * Build MqttConnectOptions before calling MqttAndroidClient#connect.
+         *
+         * [NB]
+         * Handling of the KeyChain data to build the SSLContext must be done
+         * outside of the main thread. So we run the MqttConnectOptionBuilder
+         * as a worker thread. Once it finishes, proceed to the connect method.
+         */
+        val builder = MqttConnectOptionBuilder(
+            mContext!!,
+            object : MqttConnectOptionBuilder.MqttConnectOptionBuilderListener {
+                override fun onError(errmsg: String) {
+                    mCallback.onError(errmsg, null)
+                }
+                override fun onFinished(mqttConnectOptions: MqttConnectOptions) {
+                    internalConnect(mqttConnectOptions)
+                }
+            },
+            configParser,
+            mServerUris
+        )
+        builder.buildMqttConnectOptions()
+    }
+
+    fun internalConnect(connectOptions: MqttConnectOptions) {
+        Log.d(TAG, "Going to CONNECT " + client.serverURI)
         try {
             client.connect(connectOptions, null, object : IMqttActionListener {
                 override fun onSuccess(asyncActionToken: IMqttToken) {
@@ -289,7 +378,7 @@ class MqttAsyncMessageReader<T>(
          * we need to call MqttAndroid.disconnect() to clean the internal
          * state of the MqttService.
          */
-        Log.d(TAG, "Going to DISCONNECT " + dumpServerUris())
+        Log.d(TAG, "Going to DISCONNECT " + client.serverURI)
         try {
             client.disconnect(null, object : IMqttActionListener {
                 override fun onSuccess(asyncActionToken: IMqttToken) {
@@ -461,8 +550,37 @@ class MqttAsyncMessageWriter<T>(
         })
     }
 
+    /**
+     * Issues an async connect request to the Broker.
+     * NB: Connection parameters will be specified by external configuration file.
+     */
     override fun connect() {
-        Log.d(TAG, "Going to CONNECT " + dumpServerUris())
+        /*
+         * Build MqttConnectOptions before calling MqttAndroidClient#connect.
+         *
+         * [NB]
+         * Handling of the KeyChain data to build the SSLContext must be done
+         * outside of the main thread. So we run the MqttConnectOptionBuilder
+         * as a worker thread. Once it finishes, proceed to the connect method.
+         */
+        val builder = MqttConnectOptionBuilder(
+            mContext!!,
+            object : MqttConnectOptionBuilder.MqttConnectOptionBuilderListener {
+                override fun onError(errmsg: String) {
+                    mCallback.onError(errmsg, null)
+                }
+                override fun onFinished(mqttConnectOptions: MqttConnectOptions) {
+                    internalConnect(mqttConnectOptions)
+                }
+            },
+            configParser,
+            mServerUris
+        )
+        builder.buildMqttConnectOptions()
+    }
+
+    fun internalConnect(connectOptions: MqttConnectOptions) {
+        Log.d(TAG, "Going to CONNECT " + client.serverURI)
         try {
             client.connect(connectOptions, null, object : IMqttActionListener {
                 override fun onSuccess(asyncActionToken: IMqttToken) {
@@ -493,7 +611,7 @@ class MqttAsyncMessageWriter<T>(
          * we need to call MqttAndroid.disconnect() to clean the internal
          * state of the MqttService.
          */
-        Log.d(TAG, "Going to DISCONNECT " + dumpServerUris())
+        Log.d(TAG, "Going to DISCONNECT " + client.serverURI)
         try {
             client.disconnect(null, object : IMqttActionListener {
                 override fun onSuccess(asyncActionToken: IMqttToken) {

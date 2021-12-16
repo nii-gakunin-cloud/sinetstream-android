@@ -33,8 +33,10 @@ public class MqttTlsParser extends BaseParser {
     /* Entry point */
     public void parse(@NonNull Map<String,Object> myParams)
             throws InvalidConfigurationException {
+        /* OBSOLETED
         parseMqttTlsSet(myParams);
         parseMqttTlsInsecureSet(myParams);
+         */
     }
 
     private Boolean mMqttTlsSet = null;

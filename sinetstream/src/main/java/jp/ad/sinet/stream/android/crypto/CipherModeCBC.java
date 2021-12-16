@@ -91,10 +91,10 @@ public class CipherModeCBC extends CipherBase {
             throws CryptoException {
         super.encrypt(originalData, password);
 
-        /* Uncomment only in debug phase
-        Log.d(TAG, "ENCRYPT: " +
-                "originalData(" + originalData.length + ")" + Arrays.toString(originalData));
-         */
+        if (mCryptoDebugEnabled) {
+            Log.d(TAG, "ENCRYPT: " +
+                    "originalData(" + originalData.length + ")" + Arrays.toString(originalData));
+        }
 
         /*
          * Allocate a Cipher instance for encryption.
@@ -114,13 +114,13 @@ public class CipherModeCBC extends CipherBase {
         byte[] salt = mKeyUtil.generateSalt();
         SecretKey secretKey = mKeyUtil.getSecretKeyByPassword(password, salt);
         IvParameterSpec ivParameterSpec = mKeyUtil.getIvParameterSpec(cipher);
-        /* Uncomment only in debug phase
-        if (ivParameterSpec != null) {
-            Log.d(TAG, "ENCRYPT: IV(" + ivParameterSpec.toString() + ")");
-        } else {
-            Log.d(TAG, "ENCRYPT: IV(null)");
+        if (mCryptoDebugEnabled) {
+            if (ivParameterSpec != null) {
+                Log.d(TAG, "ENCRYPT: IV(" + ivParameterSpec.toString() + ")");
+            } else {
+                Log.d(TAG, "ENCRYPT: IV(null)");
+            }
         }
-         */
 
         try {
             cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivParameterSpec);
@@ -157,11 +157,11 @@ public class CipherModeCBC extends CipherBase {
         offset += iv.length;
         System.arraycopy(opaque, 0, encryptedData, offset, opaque.length);
 
-        /* Uncomment only in debug phase
-        Log.d(TAG, "ENCRYPT: salt(" + salt.length + ")" + Arrays.toString(salt));
-        Log.d(TAG, "ENCRYPT: iv(" + iv.length + ")" + Arrays.toString(iv));
-        Log.d(TAG, "ENCRYPT: opaque(" + opaque.length + ")" + Arrays.toString(opaque));
-         */
+        if (mCryptoDebugEnabled) {
+            Log.d(TAG, "ENCRYPT: salt(" + salt.length + ")" + Arrays.toString(salt));
+            Log.d(TAG, "ENCRYPT: iv(" + iv.length + ")" + Arrays.toString(iv));
+            Log.d(TAG, "ENCRYPT: opaque(" + opaque.length + ")" + Arrays.toString(opaque));
+        }
 
         return encryptedData;
     }
@@ -215,11 +215,11 @@ public class CipherModeCBC extends CipherBase {
         offset += iv.length;
         System.arraycopy(encryptedData, offset, opaque, 0, opaque.length);
 
-        /* Uncomment only in debug phase
-        Log.d(TAG, "DECRYPT: salt(" + salt.length + ")" + Arrays.toString(salt));
-        Log.d(TAG, "DECRYPT: iv(" + iv.length + ")" + Arrays.toString(iv));
-        Log.d(TAG, "DECRYPT: opaque(" + opaque.length + ")" + Arrays.toString(opaque));
-         */
+        if (mCryptoDebugEnabled) {
+            Log.d(TAG, "DECRYPT: salt(" + salt.length + ")" + Arrays.toString(salt));
+            Log.d(TAG, "DECRYPT: iv(" + iv.length + ")" + Arrays.toString(iv));
+            Log.d(TAG, "DECRYPT: opaque(" + opaque.length + ")" + Arrays.toString(opaque));
+        }
 
         /*
          * Prepare secret key and IV parameter spec for decryption.
@@ -243,9 +243,9 @@ public class CipherModeCBC extends CipherBase {
                     "DECRYPT: Cipher.doFinal(): " + e.getMessage(), e.getCause());
         }
 
-        /* Uncomment only in debug phase
-        Log.d(TAG, "DECRYPT: originalData(" + originalData.length + ")" + Arrays.toString(originalData));
-         */
+        if (mCryptoDebugEnabled) {
+            Log.d(TAG, "DECRYPT: originalData(" + originalData.length + ")" + Arrays.toString(originalData));
+        }
 
         return originalData;
     }

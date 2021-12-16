@@ -21,6 +21,8 @@
 
 package jp.ad.sinet.stream.android.config;
 
+import android.os.Build;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -35,6 +37,7 @@ public class TlsParser extends BaseParser {
     public void parse(@NonNull Map<String,Object> myParams)
             throws InvalidConfigurationException {
         parseTls(myParams);
+        parseExtraTls(myParams);
     }
 
     private Boolean mTlsEnabled = null;
@@ -74,6 +77,7 @@ public class TlsParser extends BaseParser {
     }
 
     private void parseTlsParameters(@NonNull Map<String,Object> myParams) {
+        /* OBSOLETED
         setSelfSignedCertificateFile(myParams);
         setClientCertificateFile(myParams);
         setClientCertificatePassword(myParams);
@@ -85,6 +89,49 @@ public class TlsParser extends BaseParser {
                     "Missing password for the TLS client certificate", null
             );
         }
+         */
+        parseProtocol(myParams);
+        setSelfSignedServerCertificateEnabled(myParams);
+        setClientCertificateEnabled(myParams);
+        setHttpsHostnameVerificationEnabled(myParams);
+    }
+
+    private String mProtocol = null;
+    private void parseProtocol(@NonNull Map<String,Object> myParams)
+            throws InvalidConfigurationException {
+        String key = "protocol"; /* Optional */
+        String parsedValue = super.parseString(myParams, key, false);
+        if (parsedValue != null) {
+            switch (parsedValue) {
+                case "TLSv1":
+                case "TLSv1.1":
+                case "TLSv1.2":
+                    mProtocol = parsedValue;
+                    break;
+                case "TLSv1.3":
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        mProtocol = parsedValue;
+                    } else {
+                        throw new InvalidConfigurationException(
+                                key + "(" + parsedValue +
+                                        "): Not supported on this Android version", null);
+                    }
+                    break;
+                default:
+                    throw new InvalidConfigurationException(
+                            key + "(" + parsedValue + "): Unknown value", null);
+            }
+        } else {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                mProtocol = "TLSv1.3";
+            } else {
+                mProtocol = "TLSv1.2";
+            }
+        }
+    }
+
+    public final String getProtocol() {
+        return mProtocol;
     }
 
     private String mSelfSignedCertificateFile = null; /* PEM format file (xxx.crt) */
@@ -129,6 +176,34 @@ public class TlsParser extends BaseParser {
         return mClientCertificatePassword;
     }
 
+    private Boolean mSelfSignedServerCertificateEnabled = null;
+    private void setSelfSignedServerCertificateEnabled(
+            @NonNull Map<String,Object> myParams)
+            throws InvalidConfigurationException {
+        String key = YamlTags.KEY_SERVER_CERTS; /* Optional */
+        mSelfSignedServerCertificateEnabled =
+                super.parseBoolean(myParams, key, false);
+    }
+
+    @Nullable
+    public Boolean getSelfSignedServerCertificateEnabled() {
+        return mSelfSignedServerCertificateEnabled;
+    }
+
+    private Boolean mClientCertificateEnabled = null;
+    private void setClientCertificateEnabled(
+            @NonNull Map<String,Object> myParams)
+            throws InvalidConfigurationException {
+        String key = YamlTags.KEY_CLIENT_CERTS; /* Optional */
+        mClientCertificateEnabled =
+                super.parseBoolean(myParams, key, false);
+    }
+
+    @Nullable
+    public Boolean getClientCertificateEnabled() {
+        return mClientCertificateEnabled;
+    }
+
     private Boolean mHttpsHostnameVerificationEnabled = null;
     private void setHttpsHostnameVerificationEnabled(
             @NonNull Map<String,Object> myParams)
@@ -141,5 +216,24 @@ public class TlsParser extends BaseParser {
     @Nullable
     public Boolean getHttpsHostnameVerificationEnabled() {
         return mHttpsHostnameVerificationEnabled;
+    }
+
+    private void parseExtraTls(@NonNull Map<String,Object> myParams)
+            throws InvalidConfigurationException {
+        setClientCertificateAlias(myParams);
+    }
+
+    private String mClientCertificateAlias = null;
+    private void setClientCertificateAlias(
+            @NonNull Map<String,Object> myParams)
+            throws InvalidConfigurationException {
+        String key = YamlTags.KEY_EXTRA_ALIAS; /* Optional */
+        mClientCertificateAlias
+                = super.parseString(myParams, key, false);
+    }
+
+    @Nullable
+    public final String getClientCertificateAlias() {
+        return mClientCertificateAlias;
     }
 }

@@ -33,6 +33,7 @@ import java.util.Arrays;
 import jp.ad.sinet.stream.android.AndroidMessageReaderFactory;
 import jp.ad.sinet.stream.android.api.low.AsyncMessageReader;
 import jp.ad.sinet.stream.android.api.low.ReaderMessageCallback;
+import jp.ad.sinet.stream.android.config.YamlTags;
 
 /**
  * Provides a set of API functions to be a Reader (= subscriber)
@@ -51,7 +52,7 @@ import jp.ad.sinet.stream.android.api.low.ReaderMessageCallback;
  *     request or any error condition can be notified.
  * </p>
  */
-public class SinetStreamReader<T> {
+public abstract class SinetStreamReader<T> {
     private final String TAG = SinetStreamReader.class.getSimpleName();
 
     private final Context mContext;
@@ -107,8 +108,11 @@ public class SinetStreamReader<T> {
      * </p>
      *
      * @param serviceName the service name to match configuration parameters.
+     * @param alias the alias for a private key and certificate pair to be
+     *              used for the transport layer security.
      */
-    public void initialize(@NonNull String serviceName) {
+    public void initialize(
+            @NonNull String serviceName, @Nullable String alias) {
         if (mReader != null) {
             /* Show log message and do nothing here. */
             Log.d(TAG, "Initialize: Getting back from background");
@@ -118,6 +122,10 @@ public class SinetStreamReader<T> {
                     new AndroidMessageReaderFactory.Builder<>();
             builder.setContext(mContext); // Mandatory
             builder.setService(serviceName); // Mandatory
+            if (alias != null) {
+                builder.addParameter(
+                        YamlTags.KEY_EXTRA_ALIAS, alias); // Optional
+            }
 
             try {
                 AndroidMessageReaderFactory<T> amrf = builder.build();
@@ -181,7 +189,7 @@ public class SinetStreamReader<T> {
      */
     private void setCallback() {
         if (mReader != null) {
-            mReader.setCallback(new ReaderMessageCallback<T>() {
+            mReader.setCallback(new ReaderMessageCallback<>() {
                 @Override
                 public void onConnectionEstablished() {
                     // Successfully connected to the Broker
@@ -196,7 +204,7 @@ public class SinetStreamReader<T> {
                 public void onConnectionClosed(@Nullable String reason) {
                     // Connection closed
                     Log.d(TAG, "onConnectionClosed: reason(" +
-                            (reason != null? reason : "Normal closure") + ")");
+                            (reason != null ? reason : "Normal closure") + ")");
                     mServerReady = false;
                     if (reason != null) {
                         mListener.onError(reason);

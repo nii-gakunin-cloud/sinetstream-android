@@ -34,6 +34,7 @@ public class CryptoParser extends BaseParser {
     public void parse(@NonNull Map<String,Object> myParams)
             throws InvalidConfigurationException {
         parseCrypto(myParams);
+        parseCryptoDebug(myParams);
     }
 
     /*
@@ -292,5 +293,17 @@ public class CryptoParser extends BaseParser {
     @Nullable
     public final Integer getIteration() {
         return mIteration;
+    }
+
+    private Boolean mCryptoDebugEnabled = null;
+    private void parseCryptoDebug(@NonNull Map<String,Object> myParams)
+            throws InvalidConfigurationException {
+        String key = "crypto_debug"; /* Optional */
+        mCryptoDebugEnabled = super.parseBoolean(myParams, key, false);
+    }
+
+    @Nullable
+    public final Boolean getCryptoDebug() {
+        return mCryptoDebugEnabled;
     }
 }

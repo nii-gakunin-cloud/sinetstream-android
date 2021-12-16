@@ -33,6 +33,7 @@ import java.util.Arrays;
 import jp.ad.sinet.stream.android.AndroidMessageWriterFactory;
 import jp.ad.sinet.stream.android.api.low.AsyncMessageWriter;
 import jp.ad.sinet.stream.android.api.low.WriterMessageCallback;
+import jp.ad.sinet.stream.android.config.YamlTags;
 
 /**
  * Provides a set of API functions to be a Writer (= publisher)
@@ -52,7 +53,7 @@ import jp.ad.sinet.stream.android.api.low.WriterMessageCallback;
  *     request or any error condition can be notified.
  * </p>
  */
-public class SinetStreamWriter<T> {
+public abstract class SinetStreamWriter<T> {
     private final String TAG = SinetStreamWriter.class.getSimpleName();
 
     private final Context mContext;
@@ -107,8 +108,11 @@ public class SinetStreamWriter<T> {
      * </p>
      *
      * @param serviceName the service name to match configuration parameters.
+     * @param alias the alias for a private key and certificate pair to be
+     *              used for the transport layer security.
      */
-    public void initialize(@NonNull String serviceName) {
+    public void initialize(
+            @NonNull String serviceName, @Nullable String alias) {
         if (mWriter != null) {
             /* Show log message and do nothing here. */
             Log.d(TAG, "Initialize: Getting back from background");
@@ -119,6 +123,11 @@ public class SinetStreamWriter<T> {
                         new AndroidMessageWriterFactory.Builder<>();
                 builder.setContext(mContext); // Mandatory
                 builder.setService(serviceName); // Mandatory
+                if (alias != null) {
+                    builder.addParameter(
+                            YamlTags.KEY_EXTRA_ALIAS, alias); // Optional
+                }
+
                 try {
                     AndroidMessageWriterFactory<T> amwf = builder.build();
                     mWriter = amwf.getAsyncWriter();
@@ -183,7 +192,7 @@ public class SinetStreamWriter<T> {
      * Sets callback handlers for internal state management and user interaction.
      */
     private void setCallback() {
-        mWriter.setCallback(new WriterMessageCallback<T>() {
+        mWriter.setCallback(new WriterMessageCallback<>() {
             @Override
             public void onConnectionEstablished() {
                 // Successfully connected to the Broker
@@ -198,7 +207,7 @@ public class SinetStreamWriter<T> {
             public void onConnectionClosed(@Nullable String reason) {
                 // Connection closed
                 Log.d(TAG, "onConnectionClosed: reason(" +
-                        (reason != null? reason : "Normal closure") + ")");
+                        (reason != null ? reason : "Normal closure") + ")");
 
                 mServerReady = false;
                 if (reason != null) {

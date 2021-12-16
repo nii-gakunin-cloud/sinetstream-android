@@ -22,6 +22,7 @@
 package jp.ad.sinet.stream.android.mqtt;
 
 import android.content.Context;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 
@@ -29,15 +30,15 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 
 import java.util.Properties;
 
+import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 
-import jp.ad.sinet.stream.android.api.InvalidConfigurationException;
 import jp.ad.sinet.stream.android.config.ConfigParser;
 import jp.ad.sinet.stream.android.config.MqttParser;
 import jp.ad.sinet.stream.android.config.MqttTlsParser;
 import jp.ad.sinet.stream.android.config.TlsParser;
 import jp.ad.sinet.stream.android.config.UserPasswordParser;
-import jp.ad.sinet.stream.android.net.cert.TlsUtils;
+import jp.ad.sinet.stream.android.net.cert.KeyChainParser;
 
 /*
  * This class allocates a MqttConnectOptions and sets up its contents
@@ -46,6 +47,8 @@ import jp.ad.sinet.stream.android.net.cert.TlsUtils;
  * https://www.eclipse.org/paho/files/javadoc/org/eclipse/paho/client/mqttv3/MqttConnectOptions.html
  */
 public class MqttConnectOptionBuilder {
+    private final String TAG = MqttConnectOptionBuilder.class.getSimpleName();
+
     private final Context mContext;
     private final ConfigParser mConfigParser;
     private final String[] mServerUris;
@@ -53,14 +56,17 @@ public class MqttConnectOptionBuilder {
     private final MqttParser mMqttParser;
     private final TlsParser mTlsParser;
     private final MqttTlsParser mMqttTlsParser;
+    private Thread mThread = null;
+
+    private final MqttConnectOptionBuilderListener mListener;
 
     public MqttConnectOptionBuilder(
-            Context context,
+            @NonNull Context context,
+            @NonNull MqttConnectOptionBuilderListener listener,
             @NonNull ConfigParser configParser,
             @NonNull String[] serverUris) {
-        assert(context != null);
-
         this.mContext = context;
+        this.mListener = listener;
         this.mConfigParser = configParser;
         this.mServerUris = serverUris;
 
@@ -73,8 +79,7 @@ public class MqttConnectOptionBuilder {
     /*
      * Entry point
      */
-    public MqttConnectOptions buildMqttConnectOptions()
-            throws InvalidConfigurationException {
+    public void buildMqttConnectOptions() {
         MqttConnectOptions mqttConnectOptions = new MqttConnectOptions();
         try {
             setServerUris(mqttConnectOptions);
@@ -88,11 +93,12 @@ public class MqttConnectOptionBuilder {
                  * system-wide TLS parameters.
                  */
                 setTlsParams(mqttConnectOptions);
+            } else {
+                mListener.onFinished(mqttConnectOptions);
             }
         } catch (IllegalArgumentException | IllegalStateException e) {
-            throw new InvalidConfigurationException(e.getMessage(), e);
+            mListener.onError("MqttConnectOptions: " + e.getMessage());
         }
-        return mqttConnectOptions;
     }
 
     private void setServerUris(MqttConnectOptions mqttConnectOptions) {
@@ -182,6 +188,7 @@ public class MqttConnectOptionBuilder {
         setHttpsHostnameVerificationEnabled(mqttConnectOptions);
     }
 
+    /* OBSOLETED
     private void setSslSocket(MqttConnectOptions mqttConnectOptions) {
         String selfSignedCertificate = null;
         String clientCertificate = null;
@@ -218,6 +225,53 @@ public class MqttConnectOptionBuilder {
 
         mqttConnectOptions.setSocketFactory(sslSocketFactory);
     }
+     */
+
+    private void setSslSocket(MqttConnectOptions mqttConnectOptions) {
+        String protocol =
+                mConfigParser.getSSLContextProtocol();
+        String alias =
+                mConfigParser.getClientCertificateAlias(); // can be null
+        boolean serverCert =
+                mConfigParser.useTlsServerCertificate();
+
+        if (mThread != null) {
+            if (mThread.isAlive()) {
+                Log.w(TAG, "KeyChainParser thread is still running!");
+            }
+        } else {
+            Log.d(TAG, "Going to run KeyChainParser thread");
+            mThread = new Thread(new KeyChainParser(
+                    mContext,
+                    new KeyChainParser.KeyChainParserListener() {
+                        @Override
+                        public void onError(@NonNull String errmsg) {
+                            Log.e(TAG, "KeyChainParser: " + errmsg);
+                            mListener.onError("KeyChainParser: " + errmsg);
+                        }
+
+                        @Override
+                        public void onParsed(@NonNull SSLContext sslContext) {
+                            Log.d(TAG, "onParsed: " + sslContext);
+                            try {
+                                SSLSocketFactory sslSocketFactory =
+                                        sslContext.getSocketFactory();
+                                mqttConnectOptions.setSocketFactory(sslSocketFactory);
+
+                                /* OK, all setup has done */
+                                mListener.onFinished(mqttConnectOptions);
+                            } catch (IllegalStateException e) {
+                                mListener.onError("SSLContext.getSocketFactory(): " + e);
+                            }
+                        }
+                    },
+                    protocol,
+                    alias,
+                    serverCert
+            ));
+            mThread.start();
+        }
+    }
 
     private void setHttpsHostnameVerificationEnabled(
             MqttConnectOptions mqttConnectOptions) {
@@ -230,5 +284,10 @@ public class MqttConnectOptionBuilder {
                     Boolean.TRUE.equals(httpsHostnameVerificationEnabled)
             );
         }
+    }
+
+    public interface MqttConnectOptionBuilderListener {
+        void onError(@NonNull String errmsg);
+        void onFinished(@NonNull MqttConnectOptions mqttConnectOptions);
     }
 }

@@ -32,6 +32,7 @@ abstract class CipherBase {
 
     public final KeyUtil mKeyUtil;
     public String mTransformation = null;
+    public boolean mCryptoDebugEnabled = false;
 
     /**
      * Constructor -- Allocates a CipherBase instance
@@ -59,6 +60,17 @@ abstract class CipherBase {
     }
 
     /**
+     * Set crypto module specific debug mode
+     *
+     * @param debugEnabled -- Set true if debug session is required
+     */
+    public void setDebugMode(boolean debugEnabled) {
+        /* NB: Enabling debug significantly degrades performance */
+        mCryptoDebugEnabled = debugEnabled;
+        mKeyUtil.setDebugMode(debugEnabled);
+    }
+
+    /**
      * Set transformation by parameter tuple {algorithm, mode, padding}
      *
      * @param cipherAlgorithm -- Cipher algorithm name, such like AES
@@ -71,9 +83,9 @@ abstract class CipherBase {
                                   @NonNull String paddingScheme)
             throws CryptoException {
         mTransformation = String.join("/", cipherAlgorithm, feedbackMode, paddingScheme);
-        /* Uncomment only in debug phase
-        Log.d(TAG, "transformation: " + mTransformation);
-         */
+        if (mCryptoDebugEnabled) {
+            Log.d(TAG, "transformation: " + mTransformation);
+        }
     }
 
     /**
