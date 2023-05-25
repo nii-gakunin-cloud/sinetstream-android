@@ -19,11 +19,12 @@
  *  under the License.
  */
 
-package jp.ad.sinet.stream.android.config;
+package jp.ad.sinet.stream.android.config.parser;
 
 public class YamlTags {
     public final static String KEY_SERVER_CERTS = "server_certs";
     public final static String KEY_CLIENT_CERTS = "client_certs";
 
+    /* Internal use */
     public final static String KEY_EXTRA_ALIAS = "extra_alias";
 }

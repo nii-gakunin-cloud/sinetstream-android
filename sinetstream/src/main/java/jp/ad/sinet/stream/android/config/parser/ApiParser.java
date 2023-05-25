@@ -19,7 +19,7 @@
  *  under the License.
  */
 
-package jp.ad.sinet.stream.android.config;
+package jp.ad.sinet.stream.android.config.parser;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -32,10 +32,11 @@ import jp.ad.sinet.stream.android.api.ValueType;
 public class ApiParser extends BaseParser {
 
     /* Entry point */
-    public void parse(@NonNull Map<String,Object> myParams)
+    public void parse(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
-        //parseTopic(myParams);
-        parseTopics(myParams);
+        parseTopic(configParameters);
+        parseTopics(configParameters);
+        validateTopics();
 
         /*
          * Workaround for weird crash after unsubscribe() & disconnect().
@@ -44,18 +45,18 @@ public class ApiParser extends BaseParser {
          * Here we ignore user-specified clientId, and let the
          * library MqttAsyncClient generate a random one instead.
          */
-        //parseClientId(myParams);
+        //parseClientId(configParameters);
 
-        parseConsistency(myParams);
-        parseValueType(myParams);
-        parseDataEncryption(myParams);
+        parseConsistency(configParameters);
+        parseValueType(configParameters);
+        parseDataEncryption(configParameters);
     }
 
     private String mTopic = null;
-    private void parseTopic(@NonNull Map<String,Object> myParams)
+    private void parseTopic(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "topic"; /* Mandatory */
-        mTopic = super.parseString(myParams, key, true);
+        mTopic = super.parseString(configParameters, key, false);
     }
 
     @Nullable
@@ -64,10 +65,10 @@ public class ApiParser extends BaseParser {
     }
 
     private String[] mTopics = null;
-    private void parseTopics(@NonNull Map<String,Object> myParams)
+    private void parseTopics(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "topics"; /* Mandatory */
-        mTopics = super.parseStringList(myParams, key, true);
+        mTopics = super.parseStringList(configParameters, key, false);
     }
 
     @Nullable
@@ -75,11 +76,23 @@ public class ApiParser extends BaseParser {
         return mTopics;
     }
 
+    private void validateTopics() {
+        if (mTopic != null && mTopics != null) {
+            throw new InvalidConfigurationException(
+                    "Both \"topic\" and \"topics\" are specified", null);
+        }
+        if (mTopic == null && mTopics == null) {
+            throw new InvalidConfigurationException(
+                    "Either \"topic\" or \"topics\" must be specified", null);
+        }
+        /* OK */
+    }
+
     private String mClientId = null;
-    private void parseClientId(@NonNull Map<String,Object> myParams)
+    private void parseClientId(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "client_id"; /* Optional */
-        mClientId = super.parseAlphaNumeric(myParams, key, false);
+        mClientId = super.parseAlphaNumeric(configParameters, key, false);
     }
 
     @Nullable
@@ -89,10 +102,10 @@ public class ApiParser extends BaseParser {
 
     //private int mConsistency = (Consistency.AT_LEAST_ONCE).getQos();
     private Integer mConsistency = null;
-    private void parseConsistency(@NonNull Map<String,Object> myParams)
+    private void parseConsistency(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "consistency"; /* Optional */
-        mConsistency = super.parseConsistency(myParams, key, false);
+        mConsistency = super.parseConsistency(configParameters, key, false);
     }
 
     @Nullable
@@ -102,10 +115,10 @@ public class ApiParser extends BaseParser {
 
     //private ValueType mValueType = ValueType.BYTE_ARRAY;
     private ValueType mValueType = null;
-    private void parseValueType(@NonNull Map<String,Object> myParams)
+    private void parseValueType(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "value_type"; /* Optional */
-        mValueType = super.parseValueType(myParams, key, false);
+        mValueType = super.parseValueType(configParameters, key, false);
     }
 
     @Nullable
@@ -114,10 +127,10 @@ public class ApiParser extends BaseParser {
     }
 
     private Boolean mDataEncryption = null;
-    private void parseDataEncryption(@NonNull Map<String,Object> myParams)
+    private void parseDataEncryption(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "data_encryption"; /* Optional */
-        mDataEncryption = super.parseBoolean(myParams, key, false);
+        mDataEncryption = super.parseBoolean(configParameters, key, false);
     }
 
     @Nullable

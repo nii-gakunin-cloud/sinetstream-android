@@ -19,7 +19,7 @@
  *  under the License.
  */
 
-package jp.ad.sinet.stream.android.config;
+package jp.ad.sinet.stream.android.config.parser;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -36,28 +36,28 @@ import jp.ad.sinet.stream.android.mqtt.MqttAsyncMessageIOKt;
 public class MqttParser extends BaseParser {
 
     /* Entry point */
-    public void parse(@NonNull Map<String,Object> myParams) {
-        parseCleanSession(myParams);
-        parseMqttVersion(myParams);
-        parseTransport(myParams);
-        parseQos(myParams);
-        parseRetain(myParams);
-        parseMaxInflightMessagesSet(myParams);
-        parseLwtSet(myParams);
-        parseMqttConnect(myParams);
+    public void parse(@NonNull Map<String,Object> configParameters) {
+        parseCleanSession(configParameters);
+        parseMqttVersion(configParameters);
+        parseTransport(configParameters);
+        parseQos(configParameters);
+        parseRetain(configParameters);
+        parseMaxInflightMessagesSet(configParameters);
+        parseLwtSet(configParameters);
+        parseMqttConnect(configParameters);
 
         Boolean automaticReconnect = getAutomaticReconnect();
         if (Boolean.TRUE.equals(automaticReconnect)) { /* Treat null as false */
-            parseMaxReconnectDelay(myParams);
+            parseMaxReconnectDelay(configParameters);
         }
-        parseMqttDebug(myParams);
+        parseMqttDebug(configParameters);
     }
 
     private Boolean mCleanSession = null;
-    private void parseCleanSession(@NonNull Map<String,Object> myParams)
+    private void parseCleanSession(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "clean_session"; /* Optional */
-        mCleanSession = super.parseBoolean(myParams, key, false);
+        mCleanSession = super.parseBoolean(configParameters, key, false);
     }
 
     @Nullable
@@ -66,14 +66,14 @@ public class MqttParser extends BaseParser {
     }
 
     private Integer mMqttVersion = null;
-    private void parseMqttVersion(@NonNull Map<String,Object> myParams)
+    private void parseMqttVersion(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "protocol"; /* Optional */
-        String parsedValue = super.parseString(myParams, key, false);
+        String parsedValue = super.parseString(configParameters, key, false);
         if (parsedValue == null) {
             /* Try alias */
             key = "mqtt_version"; /* Optional */
-            parsedValue = super.parseString(myParams, key, false);
+            parsedValue = super.parseString(configParameters, key, false);
         }
         if (parsedValue != null) {
             switch (parsedValue) {
@@ -99,10 +99,10 @@ public class MqttParser extends BaseParser {
     }
 
     private String mTransport = null;
-    private void parseTransport(@NonNull Map<String,Object> myParams)
+    private void parseTransport(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "transport"; /* Optional */
-        String parsedValue = super.parseString(myParams, key, false);
+        String parsedValue = super.parseString(configParameters, key, false);
         if (parsedValue != null) {
             switch (parsedValue) {
                 case "tcp":
@@ -113,7 +113,7 @@ public class MqttParser extends BaseParser {
                     mTransport = parsedValue;
 
                     /* Check WebSocket-specific options */
-                    parseWebSocketOptionsSet(myParams);
+                    parseWebSocketOptionsSet(configParameters);
                     break;
                 default:
                     throw new InvalidConfigurationException(
@@ -129,10 +129,10 @@ public class MqttParser extends BaseParser {
 
     //private int mQos = (Consistency.AT_LEAST_ONCE).getQos();
     private Integer mQos = null;
-    private void parseQos(@NonNull Map<String,Object> myParams)
+    private void parseQos(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "qos"; /* Optional */
-        Number parsedValue = super.parseNumber(myParams, key, false);
+        Number parsedValue = super.parseNumber(configParameters, key, false);
         if (parsedValue instanceof Integer) {
             Integer probe = (Integer) parsedValue;
             if (!probe.equals(Consistency.AT_MOST_ONCE.getQos())
@@ -151,10 +151,10 @@ public class MqttParser extends BaseParser {
     }
 
     private Boolean mRetain = null;
-    private void parseRetain(@NonNull Map<String,Object> myParams)
+    private void parseRetain(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "retain"; /* Optional */
-        mRetain = super.parseBoolean(myParams, key, false);
+        mRetain = super.parseBoolean(configParameters, key, false);
     }
 
     @Nullable
@@ -163,10 +163,10 @@ public class MqttParser extends BaseParser {
     }
 
     private Boolean mMaxInflightMessagesSet = null;
-    public void parseMaxInflightMessagesSet(@NonNull Map<String,Object> myParams)
+    public void parseMaxInflightMessagesSet(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "max_inflight_messages_set"; /* Optional */
-        Map<String,Object> parent = super.parseMap(myParams, key, false);
+        Map<String,Object> parent = super.parseMap(configParameters, key, false);
         if (parent != null) {
             mMaxInflightMessagesSet = true;
             parseInflight(parent);
@@ -180,10 +180,10 @@ public class MqttParser extends BaseParser {
 
     //private int mInflight = MqttConnectOptions.MAX_INFLIGHT_DEFAULT;
     private Integer mInflight = null;
-    private void parseInflight(@NonNull Map<String,Object> myParams)
+    private void parseInflight(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "inflight"; /* Optional */
-        Number parsedValue = super.parseNumber(myParams, key, false);
+        Number parsedValue = super.parseNumber(configParameters, key, false);
         if (parsedValue != null) {
             /* Non-empty value has set */
             if (parsedValue instanceof Integer) {
@@ -209,10 +209,10 @@ public class MqttParser extends BaseParser {
      * WebSocket part
      */
     private Boolean mWebsocketOptionsSet = null;
-    public void parseWebSocketOptionsSet(@NonNull Map<String,Object> myParams)
+    public void parseWebSocketOptionsSet(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "ws_set_options"; /* Optional */
-        Map<String,Object> parent = super.parseMap(myParams, key, false);
+        Map<String,Object> parent = super.parseMap(configParameters, key, false);
         if (parent != null) {
             mWebsocketOptionsSet = true;
             parseWebSocketCustomHeaders(parent);
@@ -225,15 +225,13 @@ public class MqttParser extends BaseParser {
     }
 
     private Properties mWebSocketCustomHeaders = null;
-    private void parseWebSocketCustomHeaders(@NonNull Map<String,Object> myParams)
+    private void parseWebSocketCustomHeaders(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "headers"; /* Optional */
-        Map<String,Object> parent = super.parseMap(myParams, key, false);
+        Map<String,Object> parent = super.parseMap(configParameters, key, false);
         if (parent != null) {
             mWebSocketCustomHeaders = new Properties();
-            for (Map.Entry<String,Object> entry: parent.entrySet()) {
-                mWebSocketCustomHeaders.put(entry.getKey(), entry.getValue());
-            }
+            mWebSocketCustomHeaders.putAll(parent);
         }
     }
 
@@ -246,10 +244,10 @@ public class MqttParser extends BaseParser {
      * LWT (Last Will and Testament) part
      */
     private Boolean mLwtSet = null;
-    public void parseLwtSet(@NonNull Map<String,Object> myParams)
+    public void parseLwtSet(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "will_set"; /* Optional */
-        Map<String,Object> parent = super.parseMap(myParams, key, false);
+        Map<String,Object> parent = super.parseMap(configParameters, key, false);
         if (parent != null) {
             mLwtSet = true;
 
@@ -271,10 +269,10 @@ public class MqttParser extends BaseParser {
     }
 
     private String mLwtTopic = null;
-    private void parseLwtTopic(@NonNull Map<String,Object> myParams)
+    private void parseLwtTopic(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "topic"; /* Mandatory */
-        mLwtTopic = super.parseString(myParams, key, true);
+        mLwtTopic = super.parseString(configParameters, key, true);
     }
 
     @Nullable
@@ -283,10 +281,10 @@ public class MqttParser extends BaseParser {
     }
 
     private String mLwtPayload = null;
-    private void parseLwtPayload(@NonNull Map<String,Object> myParams)
+    private void parseLwtPayload(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "payload"; /* Mandatory */
-        mLwtPayload = super.parseString(myParams, key, true);
+        mLwtPayload = super.parseString(configParameters, key, true);
     }
 
     @Nullable
@@ -295,10 +293,10 @@ public class MqttParser extends BaseParser {
     }
 
     private Integer mLwtQos = null;
-    private void parseLwtQos(@NonNull Map<String,Object> myParams)
+    private void parseLwtQos(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "qos"; /* Mandatory */
-        Number parsedValue = super.parseNumber(myParams, key, true);
+        Number parsedValue = super.parseNumber(configParameters, key, true);
         if (parsedValue instanceof Integer) {
             Integer probe = (Integer) parsedValue;
             if (!probe.equals(Consistency.AT_MOST_ONCE.getQos())
@@ -317,10 +315,10 @@ public class MqttParser extends BaseParser {
     }
 
     private Boolean mLwtRetain = null;
-    private void parseLwtRetain(@NonNull Map<String,Object> myParams)
+    private void parseLwtRetain(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "retain"; /* Mandatory */
-        mLwtRetain = super.parseBoolean(myParams, key, true);
+        mLwtRetain = super.parseBoolean(configParameters, key, true);
     }
 
     @Nullable
@@ -332,10 +330,10 @@ public class MqttParser extends BaseParser {
      * Connect part
      */
     private Boolean mConnectParameters = null;
-    public void parseMqttConnect(@NonNull Map<String,Object> myParams)
+    public void parseMqttConnect(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = MqttAsyncMessageIOKt.KEY_MQTT_CONNECT; /* Optional */
-        Map<String,Object> parent = super.parseMap(myParams, key, false);
+        Map<String,Object> parent = super.parseMap(configParameters, key, false);
         if (parent != null) {
             mConnectParameters = true;
 
@@ -352,10 +350,10 @@ public class MqttParser extends BaseParser {
 
     //private int mKeepAliveInterval = MqttConnectOptions.KEEP_ALIVE_INTERVAL_DEFAULT;
     private Integer mKeepAliveInterval = null;
-    private void parseKeepAliveInterval(@NonNull Map<String,Object> myParams)
+    private void parseKeepAliveInterval(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "keepalive"; /* Optional */
-        Number parsedValue = super.parseNumber(myParams, key, false);
+        Number parsedValue = super.parseNumber(configParameters, key, false);
         if (parsedValue != null) {
             /* Non-empty value has set */
             if (parsedValue instanceof Integer) {
@@ -378,10 +376,10 @@ public class MqttParser extends BaseParser {
     }
 
     private Boolean mAutomaticReconnect = null;
-    private void parseAutomaticReconnect(@NonNull Map<String,Object> myParams)
+    private void parseAutomaticReconnect(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "automatic_reconnect"; /* Optional */
-        mAutomaticReconnect = super.parseBoolean(myParams, key, false);
+        mAutomaticReconnect = super.parseBoolean(configParameters, key, false);
     }
 
     @Nullable
@@ -391,10 +389,10 @@ public class MqttParser extends BaseParser {
 
     //private int mConnectionTimeout = MqttConnectOptions.CONNECTION_TIMEOUT_DEFAULT;
     private Integer mConnectionTimeout = null;
-    private void parseConnectionTimeout(@NonNull Map<String,Object> myParams)
+    private void parseConnectionTimeout(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "connection_timeout"; /* Optional */
-        Number parsedValue = super.parseNumber(myParams, key, false);
+        Number parsedValue = super.parseNumber(configParameters, key, false);
         if (parsedValue != null) {
             /* Non-empty value has set */
             if (parsedValue instanceof Integer) {
@@ -420,10 +418,10 @@ public class MqttParser extends BaseParser {
      * Reconnect part
      */
     private Integer mMaxReconnectDelay = null;
-    private void parseMaxReconnectDelay(@NonNull Map<String,Object> myParams)
+    private void parseMaxReconnectDelay(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "max_delay";
-        Number parsedValue = super.parseNumber(myParams, key, false);
+        Number parsedValue = super.parseNumber(configParameters, key, false);
         if (parsedValue != null) {
             /* Non-empty value has set */
             if (parsedValue instanceof Integer) {
@@ -446,10 +444,10 @@ public class MqttParser extends BaseParser {
     }
 
     private Boolean mMqttDebugEnabled = null;
-    private void parseMqttDebug(@NonNull Map<String,Object> myParams)
+    private void parseMqttDebug(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "mqtt_debug"; /* Optional */
-        mMqttDebugEnabled = super.parseBoolean(myParams, key, false);
+        mMqttDebugEnabled = super.parseBoolean(configParameters, key, false);
     }
 
     @Nullable

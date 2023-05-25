@@ -382,7 +382,7 @@ public class KeyChainParser implements Runnable {
     }
 
     public interface KeyChainParserListener {
-        void onError(@NonNull String errmsg);
+        void onError(@NonNull String description);
         void onParsed(@NonNull SSLContext sslContext);
     }
 }

@@ -19,7 +19,7 @@
  *  under the License.
  */
 
-package jp.ad.sinet.stream.android.config;
+package jp.ad.sinet.stream.android.config.parser;
 
 import android.os.Build;
 
@@ -28,24 +28,27 @@ import androidx.annotation.Nullable;
 
 import java.util.Map;
 
-import jp.ad.sinet.stream.android.AndroidConfigLoader;
 import jp.ad.sinet.stream.android.api.InvalidConfigurationException;
+import jp.ad.sinet.stream.android.config.local.AndroidConfigLoader;
+import jp.ad.sinet.stream.android.config.remote.configclient.constants.JsonTags;
 
 public class TlsParser extends BaseParser {
 
     /* Entry point */
-    public void parse(@NonNull Map<String,Object> myParams)
+    public void parse(@NonNull Map<String,Object> configParameters,
+                      @Nullable Map<String,Object> configAttachments)
             throws InvalidConfigurationException {
-        parseTls(myParams);
-        parseExtraTls(myParams);
+        parseTls(configParameters, configAttachments);
+        parseExtraTls(configParameters);
     }
 
     private Boolean mTlsEnabled = null;
-    private void parseTls(@NonNull Map<String,Object> myParams)
+    private void parseTls(@NonNull Map<String,Object> configParameters,
+                          @Nullable Map<String,Object> configAttachments)
             throws InvalidConfigurationException {
         String key = AndroidConfigLoader.KEY_TLS; /* Optional */
-        if (myParams.get(key) != null) {
-            Object obj = myParams.get(key);
+        if (configParameters.get(key) != null) {
+            Object obj = configParameters.get(key);
             /*
              * Keyword tls can have several forms.
              * In Android version, we accept boolean cases, and don't
@@ -60,10 +63,10 @@ public class TlsParser extends BaseParser {
 
                 @SuppressWarnings("unchecked")
                 Map<String,Object> parent = (Map<String,Object>) obj;
-                parseTlsParameters(parent);
+                parseTlsParameters(parent, configAttachments);
             }
         } else {
-            if (myParams.containsKey(key)) {
+            if (configParameters.containsKey(key)) {
                 throw new InvalidConfigurationException(
                         key + ": Empty value?", null);
             }
@@ -76,12 +79,14 @@ public class TlsParser extends BaseParser {
         return mTlsEnabled;
     }
 
-    private void parseTlsParameters(@NonNull Map<String,Object> myParams) {
+    private boolean mBuildSslContextByDataSets = false;
+    private void parseTlsParameters(@NonNull Map<String,Object> configParameters,
+                                    @Nullable Map<String,Object> configAttachments) {
         /* OBSOLETED
-        setSelfSignedCertificateFile(myParams);
-        setClientCertificateFile(myParams);
-        setClientCertificatePassword(myParams);
-        setHttpsHostnameVerificationEnabled(myParams);
+        setSelfSignedCertificateFile(configParameters);
+        setClientCertificateFile(configParameters);
+        setClientCertificatePassword(configParameters);
+        setHttpsHostnameVerificationEnabled(configParameters);
 
         if (mClientCertificateFile != null
                 && mClientCertificatePassword == null) {
@@ -90,17 +95,33 @@ public class TlsParser extends BaseParser {
             );
         }
          */
-        parseProtocol(myParams);
-        setSelfSignedServerCertificateEnabled(myParams);
-        setClientCertificateEnabled(myParams);
-        setHttpsHostnameVerificationEnabled(myParams);
+        if (configAttachments != null) {
+            setSelfSignedCertificateData(configAttachments);
+            setClientCertificateData(configAttachments);
+            setClientCertificatePassword(configParameters);
+
+            if (mClientCertificateData != null && mClientCertificatePassword == null) {
+                throw new InvalidConfigurationException(
+                        "Missing password for the TLS client certificate", null
+                );
+            }
+            mBuildSslContextByDataSets = true;
+        }
+        parseProtocol(configParameters);
+        setSelfSignedServerCertificateEnabled(configParameters);
+        setClientCertificateEnabled(configParameters);
+        setHttpsHostnameVerificationEnabled(configParameters);
     }
 
-    private String mProtocol = null;
-    private void parseProtocol(@NonNull Map<String,Object> myParams)
+    public boolean isBuildSslContextByDataSets() {
+        return mBuildSslContextByDataSets;
+    }
+
+    private String mProtocol = "TLSv1.2";
+    private void parseProtocol(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "protocol"; /* Optional */
-        String parsedValue = super.parseString(myParams, key, false);
+        String parsedValue = super.parseString(configParameters, key, false);
         if (parsedValue != null) {
             switch (parsedValue) {
                 case "TLSv1":
@@ -136,11 +157,11 @@ public class TlsParser extends BaseParser {
 
     private String mSelfSignedCertificateFile = null; /* PEM format file (xxx.crt) */
     private void setSelfSignedCertificateFile(
-            @NonNull Map<String,Object> myParams)
+            @NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "ca_certs"; /* Optional */
         mSelfSignedCertificateFile
-                = super.parseString(myParams, key, false);
+                = super.parseString(configParameters, key, false);
     }
 
     @Nullable
@@ -148,13 +169,27 @@ public class TlsParser extends BaseParser {
         return mSelfSignedCertificateFile;
     }
 
+    private String mSelfSignedCertificateData = null; /* PEM format data (xxx.crt) */
+    private void setSelfSignedCertificateData(
+            @NonNull Map<String,Object> configParameters)
+            throws InvalidConfigurationException {
+        String key = JsonTags.KEY_ATTACHMENT_TLS_CA_CERTS_DATA; /* Optional */
+        mSelfSignedCertificateData
+                = super.parseString(configParameters, key, false);
+    }
+
+    @Nullable
+    public final String getSelfSignedCertificateData() {
+        return mSelfSignedCertificateData;
+    }
+
     private String mClientCertificateFile = null;  /* PKCS#12/PFX format file (xxx.pfx) */
     private void setClientCertificateFile(
-            @NonNull Map<String,Object> myParams)
+            @NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "certfile"; /* Optional */
         mClientCertificateFile
-                = super.parseString(myParams, key, false);
+                = super.parseString(configParameters, key, false);
     }
 
     @Nullable
@@ -162,13 +197,27 @@ public class TlsParser extends BaseParser {
         return mClientCertificateFile;
     }
 
+    private String mClientCertificateData = null;  /* PKCS#12/PFX format data (xxx.pfx) */
+    private void setClientCertificateData(
+            @NonNull Map<String,Object> configAttachments)
+            throws InvalidConfigurationException {
+        String key = JsonTags.KEY_ATTACHMENT_TLS_CERTFILE_DATA; /* Optional */
+        mClientCertificateData
+                = super.parseString(configAttachments, key, false);
+    }
+
+    @Nullable
+    public final String getClientCertificateData() {
+        return mClientCertificateData;
+    }
+
     private String mClientCertificatePassword = null;
     private void setClientCertificatePassword(
-            @NonNull Map<String,Object> myParams)
+            @NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "keyfilePassword"; /* Optional */
         mClientCertificatePassword
-                = super.parseString(myParams, key, false);
+                = super.parseString(configParameters, key, false);
     }
 
     @Nullable
@@ -178,11 +227,11 @@ public class TlsParser extends BaseParser {
 
     private Boolean mSelfSignedServerCertificateEnabled = null;
     private void setSelfSignedServerCertificateEnabled(
-            @NonNull Map<String,Object> myParams)
+            @NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = YamlTags.KEY_SERVER_CERTS; /* Optional */
         mSelfSignedServerCertificateEnabled =
-                super.parseBoolean(myParams, key, false);
+                super.parseBoolean(configParameters, key, false);
     }
 
     @Nullable
@@ -192,11 +241,11 @@ public class TlsParser extends BaseParser {
 
     private Boolean mClientCertificateEnabled = null;
     private void setClientCertificateEnabled(
-            @NonNull Map<String,Object> myParams)
+            @NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = YamlTags.KEY_CLIENT_CERTS; /* Optional */
         mClientCertificateEnabled =
-                super.parseBoolean(myParams, key, false);
+                super.parseBoolean(configParameters, key, false);
     }
 
     @Nullable
@@ -206,11 +255,11 @@ public class TlsParser extends BaseParser {
 
     private Boolean mHttpsHostnameVerificationEnabled = null;
     private void setHttpsHostnameVerificationEnabled(
-            @NonNull Map<String,Object> myParams)
+            @NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "check_hostname"; /* Optional */
         mHttpsHostnameVerificationEnabled =
-                super.parseBoolean(myParams, key, false);
+                super.parseBoolean(configParameters, key, false);
     }
 
     @Nullable
@@ -218,18 +267,18 @@ public class TlsParser extends BaseParser {
         return mHttpsHostnameVerificationEnabled;
     }
 
-    private void parseExtraTls(@NonNull Map<String,Object> myParams)
+    private void parseExtraTls(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
-        setClientCertificateAlias(myParams);
+        setClientCertificateAlias(configParameters);
     }
 
     private String mClientCertificateAlias = null;
     private void setClientCertificateAlias(
-            @NonNull Map<String,Object> myParams)
+            @NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = YamlTags.KEY_EXTRA_ALIAS; /* Optional */
         mClientCertificateAlias
-                = super.parseString(myParams, key, false);
+                = super.parseString(configParameters, key, false);
     }
 
     @Nullable

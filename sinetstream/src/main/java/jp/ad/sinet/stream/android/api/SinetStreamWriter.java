@@ -33,7 +33,7 @@ import java.util.Arrays;
 import jp.ad.sinet.stream.android.AndroidMessageWriterFactory;
 import jp.ad.sinet.stream.android.api.low.AsyncMessageWriter;
 import jp.ad.sinet.stream.android.api.low.WriterMessageCallback;
-import jp.ad.sinet.stream.android.config.YamlTags;
+import jp.ad.sinet.stream.android.config.parser.YamlTags;
 
 /**
  * Provides a set of API functions to be a Writer (= publisher)
@@ -61,6 +61,14 @@ public abstract class SinetStreamWriter<T> {
     private AsyncMessageWriter<T> mWriter = null;
     private boolean mServerReady = false;
 
+    private String mServerUrl = null;
+    private String mAccount = null;
+    private String mSecretKey = null;
+    private boolean mUseRemoteConfig = false;
+
+    private String mPredefinedDataStream = null;
+    private String mPredefinedServiceName = null;
+
     /**
      * Constructs a SinetStreamWriter instance.
      *
@@ -79,9 +87,51 @@ public abstract class SinetStreamWriter<T> {
             //noinspection unchecked
             mListener = (SinetStreamWriterListener<T>) context;
         } else {
-            throw new RuntimeException(context.toString() +
+            throw new RuntimeException(context +
                     " must implement SinetStreamWriterListener");
         }
+    }
+
+    /**
+     * Provide connection parameters to load configuration from remote server.
+     * <p>
+     *     User can choose the configuration source; either download from the
+     *     designated remote configuration server, or read the predefined
+     *     local file.
+     * </p>
+     * <p>
+     *     To download from the remote server, user MUST call this method
+     *     before {@code initialize()}.
+     * </p>
+     *
+     * @param serverUrl The URL to access the remote configuration server.
+     * @param account The user account to login the server.
+     * @param secretKey The secret key for authentication.
+     */
+    public void setRemoteConfig(
+            @NonNull String serverUrl,
+            @NonNull String account,
+            @NonNull String secretKey) {
+        this.mServerUrl = serverUrl;
+        this.mAccount = account;
+        this.mSecretKey = secretKey;
+        this.mUseRemoteConfig = true;
+    }
+
+    /**
+     * Sets optional parameters to be used in the REST-API requests.
+     *
+     * @param dataStream The name of a set of SINETStream configuration
+     *                   which has defined on the configuration server.
+     * @param serviceName A dataStream consists from a single service
+     *                    or multiple services. This parameter specifies
+     *                    which service to take in the dataStream.
+     */
+    public void setPredefinedParameters(
+            @Nullable String dataStream,
+            @Nullable String serviceName) {
+        mPredefinedDataStream = dataStream;
+        mPredefinedServiceName = serviceName;
     }
 
     /**
@@ -114,30 +164,53 @@ public abstract class SinetStreamWriter<T> {
     public void initialize(
             @NonNull String serviceName, @Nullable String alias) {
         if (mWriter != null) {
-            /* Show log message and do nothing here. */
-            Log.d(TAG, "Initialize: Getting back from background");
+            if (mDebugEnabled) {
+                Log.d(TAG, "Initialize: Getting back from background");
+            }
+
+            /* Prompt user to call setup() next */
+            mListener.onWriterConfigLoaded();
         } else {
             /* Get a new Writer instance. */
-            try {
-                AndroidMessageWriterFactory.Builder<T> builder =
-                        new AndroidMessageWriterFactory.Builder<>();
-                builder.setContext(mContext); // Mandatory
-                builder.setService(serviceName); // Mandatory
-                if (alias != null) {
-                    builder.addParameter(
-                            YamlTags.KEY_EXTRA_ALIAS, alias); // Optional
-                }
+            AndroidMessageWriterFactory.Builder<T> builder =
+                    new AndroidMessageWriterFactory.Builder<>();
+            builder.setContext(mContext); // Mandatory
+            builder.setService(serviceName); // Mandatory
+            if (alias != null) {
+                builder.addParameter(
+                        YamlTags.KEY_EXTRA_ALIAS, alias); // Optional
+            }
 
-                try {
-                    AndroidMessageWriterFactory<T> amwf = builder.build();
-                    mWriter = amwf.getAsyncWriter();
-                } catch (NoConfigException |
-                        InvalidConfigurationException |
-                        NoServiceException |
-                        UnsupportedServiceException e) {
-                    mListener.onError(e.toString());
+            try {
+                AndroidMessageWriterFactory<T> amwf = builder.build();
+                if (mUseRemoteConfig) {
+                    amwf.setRemoteConfig(mServerUrl, mAccount, mSecretKey);
+                    amwf.setPredefinedParameters(
+                            mPredefinedDataStream, mPredefinedServiceName);
                 }
-            } catch (NoConfigException e) {
+                amwf.setDebugEnabled(mDebugEnabled);
+                amwf.loadConfig(
+                        new AndroidMessageWriterFactory.WriterConfigLoaderListener() {
+                    @Override
+                    public void onWriterConfigLoaded() {
+                        try {
+                            mWriter = amwf.getAsyncWriter();
+                            mListener.onWriterConfigLoaded();
+                        } catch (InvalidConfigurationException |
+                                UnsupportedServiceException e) {
+                            mListener.onError(e.toString());
+                        }
+                    }
+
+                    @Override
+                    public void onError(@NonNull String description) {
+                        mListener.onError(description);
+                    }
+                });
+            } catch (NoConfigException |
+                    InvalidConfigurationException |
+                    NoServiceException |
+                    UnsupportedServiceException e) {
                 mListener.onError(e.toString());
             }
         }
@@ -184,7 +257,9 @@ public abstract class SinetStreamWriter<T> {
             mWriter.connect();
         } else {
             /* Show log message and do nothing here. */
-            Log.d(TAG, "Setup: already done");
+            if (mDebugEnabled) {
+                Log.d(TAG, "Setup: already done");
+            }
         }
     }
 
@@ -194,9 +269,11 @@ public abstract class SinetStreamWriter<T> {
     private void setCallback() {
         mWriter.setCallback(new WriterMessageCallback<>() {
             @Override
-            public void onConnectionEstablished() {
+            public void onConnectionEstablished(boolean reconnect) {
                 // Successfully connected to the Broker
-                Log.d(TAG, "onConnectionEstablished");
+                if (mDebugEnabled) {
+                    Log.d(TAG, "onConnectionEstablished: reconnect(" + reconnect + ")");
+                }
 
                 /* OK, now we are ready to publish */
                 mServerReady = true;
@@ -206,8 +283,10 @@ public abstract class SinetStreamWriter<T> {
             @Override
             public void onConnectionClosed(@Nullable String reason) {
                 // Connection closed
-                Log.d(TAG, "onConnectionClosed: reason(" +
-                        (reason != null ? reason : "Normal closure") + ")");
+                if (mDebugEnabled) {
+                    Log.d(TAG, "onConnectionClosed: reason(" +
+                            (reason != null ? reason : "Normal closure") + ")");
+                }
 
                 mServerReady = false;
                 if (reason != null) {
@@ -218,9 +297,20 @@ public abstract class SinetStreamWriter<T> {
             }
 
             @Override
+            public void onReconnectInProgress() {
+                if (mDebugEnabled) {
+                    Log.d(TAG, "onReconnectInProgress");
+                }
+                mServerReady = false;
+                mListener.onWriterReconnectInProgress();
+            }
+
+            @Override
             public void onPublished(T message, Object userData) {
                 // Publish completed
-                Log.d(TAG, "onPublished");
+                if (mDebugEnabled) {
+                    Log.d(TAG, "onPublished");
+                }
                 mListener.onPublished(message, userData);
             }
 
@@ -231,7 +321,7 @@ public abstract class SinetStreamWriter<T> {
                     String stack = Arrays.toString(exception.getStackTrace());
                     Log.e(TAG, "onError(exception): \n" +
                             stack.replaceAll(", ", "\n "));
-                    errmsg += ": " + exception.toString();
+                    errmsg += ": " + exception;
                 }
                 mListener.onError(errmsg);
             }
@@ -298,13 +388,31 @@ public abstract class SinetStreamWriter<T> {
         return valueType;
     }
 
+    private boolean mDebugEnabled = false;
+    public void enableDebug(boolean enabled) {
+        mDebugEnabled = enabled;
+    }
+
     public interface SinetStreamWriterListener<T> {
+        /**
+         * Called when initialization process, including configuration loading,
+         * has finished.
+         * Now user can call "SinetStreamWriter<T>.setup()" next.
+         */
+        void onWriterConfigLoaded();
+
         /**
          * Called when availability status has changed.
          *
          * @param isReady true if "connected" to the Broker, false otherwise
          */
         void onWriterStatusChanged(boolean isReady);
+
+        /**
+         * Called when the broker connection has lost and auto-reconnect
+         * procedure is in progress.
+         */
+        void onWriterReconnectInProgress();
 
         /**
          * Called when {@link #publish(Object, Object) publish(T, userData)}
@@ -321,7 +429,8 @@ public abstract class SinetStreamWriter<T> {
 
         /**
          * Called when any error condition has met. The error might be detected
-         * either at the sinetstream-android level, or at underneath library level.
+         * either at this sinetstream-android library, or at somewhere in the
+         * lower level libraries.
          *
          * @param description brief description of the error.
          */

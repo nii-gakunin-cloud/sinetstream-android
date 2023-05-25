@@ -116,7 +116,7 @@ public class CipherModeCBC extends CipherBase {
         IvParameterSpec ivParameterSpec = mKeyUtil.getIvParameterSpec(cipher);
         if (mCryptoDebugEnabled) {
             if (ivParameterSpec != null) {
-                Log.d(TAG, "ENCRYPT: IV(" + ivParameterSpec.toString() + ")");
+                Log.d(TAG, "ENCRYPT: IV(" + ivParameterSpec + ")");
             } else {
                 Log.d(TAG, "ENCRYPT: IV(null)");
             }

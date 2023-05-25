@@ -33,7 +33,7 @@ import java.util.Arrays;
 import jp.ad.sinet.stream.android.AndroidMessageReaderFactory;
 import jp.ad.sinet.stream.android.api.low.AsyncMessageReader;
 import jp.ad.sinet.stream.android.api.low.ReaderMessageCallback;
-import jp.ad.sinet.stream.android.config.YamlTags;
+import jp.ad.sinet.stream.android.config.parser.YamlTags;
 
 /**
  * Provides a set of API functions to be a Reader (= subscriber)
@@ -61,6 +61,14 @@ public abstract class SinetStreamReader<T> {
     private boolean mServerReady = false;
     private boolean mIsSubscribed = false;
 
+    private String mServerUrl = null;
+    private String mAccount = null;
+    private String mSecretKey = null;
+    private boolean mUseRemoteConfig = false;
+
+    private String mPredefinedDataStream = null;
+    private String mPredefinedServiceName = null;
+
     /**
      * Constructs a SinetStreamReader instance.
      *
@@ -79,9 +87,51 @@ public abstract class SinetStreamReader<T> {
             //noinspection unchecked
             mListener = (SinetStreamReaderListener<T>) context;
         } else {
-            throw new RuntimeException(context.toString() +
+            throw new RuntimeException(context +
                     " must implement SinetStreamReaderListener");
         }
+    }
+
+    /**
+     * Provide connection parameters to load configuration from remote server.
+     * <p>
+     *     User can choose the configuration source; either download from the
+     *     designated remote configuration server, or read the predefined
+     *     local file.
+     * </p>
+     * <p>
+     *     To download from the remote server, user MUST call this method
+     *     before {@code initialize()}.
+     * </p>
+     *
+     * @param serverUrl The URL to access the remote configuration server.
+     * @param account The user account to login the server.
+     * @param secretKey The secret key for authentication.
+     */
+    public void setRemoteConfig(
+            @NonNull String serverUrl,
+            @NonNull String account,
+            @NonNull String secretKey) {
+        this.mServerUrl = serverUrl;
+        this.mAccount = account;
+        this.mSecretKey = secretKey;
+        this.mUseRemoteConfig = true;
+    }
+
+    /**
+     * Sets optional parameters to be used in the REST-API requests.
+     *
+     * @param dataStream The name of a set of SINETStream configuration
+     *                   which has defined on the configuration server.
+     * @param serviceName A dataStream consists from a single service
+     *                    or multiple services. This parameter specifies
+     *                    which service to take in the dataStream.
+     */
+    public void setPredefinedParameters(
+            @Nullable String dataStream,
+            @Nullable String serviceName) {
+        mPredefinedDataStream = dataStream;
+        mPredefinedServiceName = serviceName;
     }
 
     /**
@@ -114,8 +164,12 @@ public abstract class SinetStreamReader<T> {
     public void initialize(
             @NonNull String serviceName, @Nullable String alias) {
         if (mReader != null) {
-            /* Show log message and do nothing here. */
-            Log.d(TAG, "Initialize: Getting back from background");
+            if (mDebugEnabled) {
+                Log.d(TAG, "Initialize: Getting back from background");
+            }
+
+            /* Prompt user to call setup() next */
+            mListener.onReaderConfigLoaded();
         } else {
             /* Get a new Reader instance. */
             AndroidMessageReaderFactory.Builder<T> builder =
@@ -129,7 +183,30 @@ public abstract class SinetStreamReader<T> {
 
             try {
                 AndroidMessageReaderFactory<T> amrf = builder.build();
-                mReader = amrf.getAsyncReader();
+                if (mUseRemoteConfig) {
+                    amrf.setRemoteConfig(mServerUrl, mAccount, mSecretKey);
+                    amrf.setPredefinedParameters(
+                            mPredefinedDataStream, mPredefinedServiceName);
+                }
+                amrf.setDebugEnabled(mDebugEnabled);
+                amrf.loadConfig(
+                        new AndroidMessageReaderFactory.ReaderConfigLoaderListener() {
+                            @Override
+                            public void onReaderConfigLoaded() {
+                                try {
+                                    mReader = amrf.getAsyncReader();
+                                    mListener.onReaderConfigLoaded();
+                                } catch (InvalidConfigurationException |
+                                        UnsupportedServiceException e) {
+                                    mListener.onError(e.toString());
+                                }
+                            }
+
+                            @Override
+                            public void onError(@NonNull String description) {
+                                mListener.onError(description);
+                            }
+                        });
             } catch (NoConfigException |
                     InvalidConfigurationException |
                     NoServiceException |
@@ -180,7 +257,9 @@ public abstract class SinetStreamReader<T> {
             mReader.connect();
         } else {
             /* Show log message and do nothing here. */
-            Log.d(TAG, "Setup: already done");
+            if (mDebugEnabled) {
+                Log.d(TAG, "Setup: already done");
+            }
         }
     }
 
@@ -191,9 +270,11 @@ public abstract class SinetStreamReader<T> {
         if (mReader != null) {
             mReader.setCallback(new ReaderMessageCallback<>() {
                 @Override
-                public void onConnectionEstablished() {
+                public void onConnectionEstablished(boolean reconnect) {
                     // Successfully connected to the Broker
-                    Log.d(TAG, "onConnectionEstablished");
+                    if (mDebugEnabled) {
+                        Log.d(TAG, "onConnectionEstablished: reconnect(" + reconnect + ")");
+                    }
 
                     /* Try auto-subscribe for convenience. */
                     mServerReady = true;
@@ -203,8 +284,10 @@ public abstract class SinetStreamReader<T> {
                 @Override
                 public void onConnectionClosed(@Nullable String reason) {
                     // Connection closed
-                    Log.d(TAG, "onConnectionClosed: reason(" +
-                            (reason != null ? reason : "Normal closure") + ")");
+                    if (mDebugEnabled) {
+                        Log.d(TAG, "onConnectionClosed: reason(" +
+                                (reason != null ? reason : "Normal closure") + ")");
+                    }
                     mServerReady = false;
                     if (reason != null) {
                         mListener.onError(reason);
@@ -214,9 +297,20 @@ public abstract class SinetStreamReader<T> {
                 }
 
                 @Override
+                public void onReconnectInProgress() {
+                    if (mDebugEnabled) {
+                        Log.d(TAG, "onReconnectInProgress");
+                    }
+                    mServerReady = false;
+                    mListener.onReaderReconnectInProgress();
+                }
+
+                @Override
                 public void onSubscribed() {
                     // Now, we are ready to receive messages from Broker.
-                    Log.d(TAG, "onSubscribed");
+                    if (mDebugEnabled) {
+                        Log.d(TAG, "onSubscribed");
+                    }
                     mIsSubscribed = true;
                     mListener.onReaderStatusChanged(true);
                 }
@@ -224,7 +318,9 @@ public abstract class SinetStreamReader<T> {
                 @Override
                 public void onUnsubscribed() {
                     // We won't receive messages anymore.
-                    Log.d(TAG, "onUnsubscribed");
+                    if (mDebugEnabled) {
+                        Log.d(TAG, "onUnsubscribed");
+                    }
                     mIsSubscribed = false;
                     mListener.onReaderStatusChanged(false);
 
@@ -236,7 +332,9 @@ public abstract class SinetStreamReader<T> {
 
                 @Override
                 public void onMessageReceived(@NonNull Message<T> message) {
-                    Log.d(TAG, "onMessageReceived");
+                    if (mDebugEnabled) {
+                        Log.d(TAG, "onMessageReceived");
+                    }
                     Long unixTime = message.getTimestamp();
 
                     mListener.onMessageReceived(
@@ -252,7 +350,7 @@ public abstract class SinetStreamReader<T> {
                         String stack = Arrays.toString(exception.getStackTrace());
                         Log.e(TAG, "onError(exception): \n" +
                                 stack.replaceAll(", ", "\n "));
-                        errmsg += ": " + exception.toString();
+                        errmsg += ": " + exception;
                     }
                     mListener.onError(errmsg);
                 }
@@ -303,13 +401,31 @@ public abstract class SinetStreamReader<T> {
         return valueType;
     }
 
+    private boolean mDebugEnabled = false;
+    public void enableDebug(boolean enabled) {
+        mDebugEnabled = enabled;
+    }
+
     public interface SinetStreamReaderListener<T> {
+        /**
+         * Called when initialization process, including configuration loading,
+         * has finished.
+         * Now user can call "SinetStreamReader<T>.setup()" next.
+         */
+        void onReaderConfigLoaded();
+
         /**
          * Called when availability status has changed.
          *
          * @param isReady true if "connected and subscribed" to the Broker, false otherwise
          */
         void onReaderStatusChanged(boolean isReady);
+
+        /**
+         * Called when the broker connection has lost and auto-reconnect
+         * procedure is in progress.
+         */
+        void onReaderReconnectInProgress();
 
         /**
          * Called when a message has received on any subscribed topic.
@@ -324,7 +440,8 @@ public abstract class SinetStreamReader<T> {
 
         /**
          * Called when any error condition has met. The error might be detected
-         * either at the sinetstream-android level, or at underneath library level.
+         * either at this sinetstream-android library, or at somewhere in the
+         * lower level libraries.
          *
          * @param description brief description of the error.
          */

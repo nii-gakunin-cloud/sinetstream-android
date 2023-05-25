@@ -23,6 +23,8 @@ package jp.ad.sinet.stream.android.net.cert;
 
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.KeyStore;
@@ -88,7 +90,8 @@ public class KeyStoreUtil {
         return keyStore;
     }
 
-    static void loadX509Certificate(KeyStore keyStore, InputStream inputStream) {
+    static void loadX509Certificate(
+            @NonNull KeyStore keyStore, @NonNull InputStream inputStream) {
         CertificateFactory factory;
         try {
             factory = CertificateFactory.getInstance("X509");

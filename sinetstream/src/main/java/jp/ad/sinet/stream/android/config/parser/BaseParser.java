@@ -19,7 +19,7 @@
  *  under the License.
  */
 
-package jp.ad.sinet.stream.android.config;
+package jp.ad.sinet.stream.android.config.parser;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -39,13 +39,13 @@ abstract class BaseParser {
 
     @Nullable
     public Boolean parseBoolean(
-            @NonNull Map<String,Object> myParams,
+            @NonNull Map<String,Object> configParameters,
             @NonNull String key,
             boolean mandatory)
             throws InvalidConfigurationException {
         Boolean booleanValue = null;
         Object obj;
-        if ((obj = myParams.get(key)) != null) {
+        if ((obj = configParameters.get(key)) != null) {
             if (obj instanceof Boolean) {
                 booleanValue = (Boolean) obj;
             } else {
@@ -53,7 +53,7 @@ abstract class BaseParser {
                         key + "(" + obj + "): Not a boolean?", null);
             }
         } else {
-            if (myParams.containsKey(key)) {
+            if (configParameters.containsKey(key)) {
                 throw new InvalidConfigurationException(
                         key + ": Empty value?", null);
             } else if (mandatory) {
@@ -66,13 +66,13 @@ abstract class BaseParser {
 
     @Nullable
     public Number parseNumber(
-            @NonNull Map<String,Object> myParams,
+            @NonNull Map<String,Object> configParameters,
             @NonNull String key,
             boolean mandatory)
             throws InvalidConfigurationException {
         Number numberValue = null;
         Object obj;
-        if ((obj = myParams.get(key)) != null) {
+        if ((obj = configParameters.get(key)) != null) {
             if (obj instanceof Number) {
                 numberValue = (Number) obj;
             } else {
@@ -80,7 +80,7 @@ abstract class BaseParser {
                         key + "(" + obj + "): Not a Number?", null);
             }
         } else {
-            if (myParams.containsKey(key)) {
+            if (configParameters.containsKey(key)) {
                 throw new InvalidConfigurationException(
                         key + ": Empty value?", null);
             } else if (mandatory) {
@@ -93,13 +93,13 @@ abstract class BaseParser {
 
     @Nullable
     public String parseString(
-            @NonNull Map<String,Object> myParams,
+            @NonNull Map<String,Object> configParameters,
             @NonNull String key,
             boolean mandatory)
             throws InvalidConfigurationException {
         String stringValue = null;
         Object obj;
-        if ((obj = myParams.get(key)) != null) {
+        if ((obj = configParameters.get(key)) != null) {
             if (obj instanceof String) {
                 stringValue = (String) obj;
             } else {
@@ -107,7 +107,7 @@ abstract class BaseParser {
                         key + "(" + obj + "): Not a String?", null);
             }
         } else {
-            if (myParams.containsKey(key)) {
+            if (configParameters.containsKey(key)) {
                 throw new InvalidConfigurationException(
                         key + ": Empty value?", null);
             } else if (mandatory) {
@@ -120,13 +120,13 @@ abstract class BaseParser {
 
     @Nullable
     public String parseAlphaNumeric(
-            @NonNull Map<String,Object> myParams,
+            @NonNull Map<String,Object> configParameters,
             @NonNull String key,
             boolean mandatory)
             throws InvalidConfigurationException {
         String stringValue = null;
         Object obj;
-        if ((obj = myParams.get(key)) != null) {
+        if ((obj = configParameters.get(key)) != null) {
             if (obj instanceof String) {
                 stringValue = (String) obj;
             } else if (obj instanceof Number) {
@@ -136,7 +136,7 @@ abstract class BaseParser {
                         key + "(" + obj + "): Not a String/Number?", null);
             }
         } else {
-            if (myParams.containsKey(key)) {
+            if (configParameters.containsKey(key)) {
                 throw new InvalidConfigurationException(
                         key + ": Empty value?", null);
             } else if (mandatory) {
@@ -150,13 +150,13 @@ abstract class BaseParser {
     @SuppressWarnings("unchecked")
     @Nullable
     public String[] parseStringList(
-            @NonNull Map<String,Object> myParams,
+            @NonNull Map<String,Object> configParameters,
             @NonNull String key,
             boolean mandatory)
             throws InvalidConfigurationException {
         String[] strArray = null;
         Object obj;
-        if ((obj = myParams.get(key)) != null) {
+        if ((obj = configParameters.get(key)) != null) {
             if (obj instanceof String) {
                 String probe = (String) obj;
                 if (probe.contains(",")) {
@@ -203,7 +203,7 @@ abstract class BaseParser {
                         key + "(" + obj + "): Not a String[]?", null);
             }
         } else {
-            if (myParams.containsKey(key)) {
+            if (configParameters.containsKey(key)) {
                 throw new InvalidConfigurationException(
                         key + ": Empty value?", null);
             } else if (mandatory) {
@@ -217,13 +217,13 @@ abstract class BaseParser {
     @SuppressWarnings("unchecked")
     @Nullable
     public Map<String,Object> parseMap(
-            @NonNull Map<String,Object> myParams,
+            @NonNull Map<String,Object> configParameters,
             @NonNull String key,
             boolean mandatory)
             throws InvalidConfigurationException {
         Map<String,Object> mapValue = null;
         Object obj;
-        if ((obj = myParams.get(key)) != null) {
+        if ((obj = configParameters.get(key)) != null) {
             if (obj instanceof Map) {
                 mapValue = (Map<String, Object>) obj;
             } else {
@@ -231,7 +231,7 @@ abstract class BaseParser {
                         key + "(" + obj + "): Not a Map?", null);
             }
         } else {
-            if (myParams.containsKey(key)) {
+            if (configParameters.containsKey(key)) {
                 throw new InvalidConfigurationException(
                         key + ": Empty value?", null);
             } else if (mandatory) {
@@ -244,14 +244,14 @@ abstract class BaseParser {
 
     @Nullable
     public Integer parseConsistency(
-            @NonNull Map<String,Object> myParams,
+            @NonNull Map<String,Object> configParameters,
             @NonNull String key,
             boolean mandatory)
             throws InvalidConfigurationException {
         //int qos = (Consistency.AT_LEAST_ONCE).getQos(); // default
         Integer qos = null;
         Object obj;
-        if ((obj = myParams.get(key)) != null) {
+        if ((obj = configParameters.get(key)) != null) {
             if (obj instanceof Consistency) {
                 Consistency probe = (Consistency) obj;
                 qos = probe.getQos();
@@ -260,7 +260,7 @@ abstract class BaseParser {
                         key + "(" + obj + "): Not a Consistency member?", null);
             }
         } else {
-            if (myParams.containsKey(key)) {
+            if (configParameters.containsKey(key)) {
                 throw new InvalidConfigurationException(
                         key + ": Empty value?", null);
             } else if (mandatory) {
@@ -273,14 +273,14 @@ abstract class BaseParser {
 
     @Nullable
     public ValueType parseValueType(
-            @NonNull Map<String,Object> myParams,
+            @NonNull Map<String,Object> configParameters,
             @NonNull String key,
             boolean mandatory)
             throws InvalidConfigurationException {
         //ValueType valueType = ValueType.BYTE_ARRAY; // default
         ValueType valueType = null;
         Object obj;
-        if ((obj = myParams.get(key)) != null) {
+        if ((obj = configParameters.get(key)) != null) {
             if (obj instanceof ValueType) {
                 valueType = (ValueType) obj;
             } else {
@@ -288,7 +288,7 @@ abstract class BaseParser {
                         key + "(" + obj + "): Not a ValueType member?", null);
             }
         } else {
-            if (myParams.containsKey(key)) {
+            if (configParameters.containsKey(key)) {
                 throw new InvalidConfigurationException(
                         key + ": Empty value?", null);
             } else if (mandatory) {

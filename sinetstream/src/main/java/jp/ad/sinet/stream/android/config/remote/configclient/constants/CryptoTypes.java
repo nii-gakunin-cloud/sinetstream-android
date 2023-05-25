@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 National Institute of Informatics
+ * Copyright (c) 2022 National Institute of Informatics
  *
  *  Licensed to the Apache Software Foundation (ASF) under one
  *  or more contributor license agreements.  See the NOTICE file
@@ -19,16 +19,10 @@
  *  under the License.
  */
 
-package jp.ad.sinet.stream.android.api
+package jp.ad.sinet.stream.android.config.remote.configclient.constants;
 
-class InvalidMessageException :
-    SinetStreamIOException {
-    constructor()
-    constructor(message: String?) : super(message)
-    constructor(message: String?, cause: Throwable?) : super(message, cause)
-    constructor(cause: Throwable?) : super(cause)
-
-    companion object {
-        private const val serialVersionUID = 1L
-    }
+public class CryptoTypes {
+    /* Public key encryption method on the configuration server */
+    public final static int PK_RSA_OAEP_SHA256 = 1;
+    public final static int PK_RSA_OAEP_SHA1 = 2;
 }

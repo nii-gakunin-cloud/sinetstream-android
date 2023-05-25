@@ -19,7 +19,7 @@
  *  under the License.
  */
 
-package jp.ad.sinet.stream.android.config;
+package jp.ad.sinet.stream.android.config.parser;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -88,23 +88,24 @@ public class ConfigParser {
     /*
      * Entry point of the parser tree
      */
-    public void parse(@NonNull Map<String,Object> myParams)
+    public void parse(@NonNull Map<String,Object> configParameters,
+                      @Nullable Map<String,Object> configAttachments)
             throws InvalidConfigurationException {
         /* Common */
-        mCommonParser.parse(myParams);
+        mCommonParser.parse(configParameters);
         String type = mCommonParser.getMessagingSystemType(); // NB: might be null
         if (type != null && type.equalsIgnoreCase("mqtt")) {
             mMqttEnabled = true;
         }
 
         /* Api */
-        mApiParser.parse(myParams);
+        mApiParser.parse(configParameters);
 
         /* UserName & Password */
-        mUserPasswordParser.parse(myParams);
+        mUserPasswordParser.parse(configParameters);
 
         /* System-wide TLS parameters */
-        mTlsParser.parse(myParams);
+        mTlsParser.parse(configParameters, configAttachments);
         Boolean tlsEnabled = mTlsParser.isTlsEnabled(); // NB: might be null
         if (tlsEnabled != null) {
             mTlsEnabled = Boolean.TRUE.equals(tlsEnabled);
@@ -112,17 +113,17 @@ public class ConfigParser {
 
         /* MQTT parameters */
         if (mMqttEnabled) {
-            mMqttParser.parse(myParams);
+            mMqttParser.parse(configParameters);
 
             if (mTlsEnabled) {
                 /* MQTT-specific TLS parameters */
-                mMqttTlsParser.parse(myParams);
+                mMqttTlsParser.parse(configParameters);
             }
         }
 
         /* Crypto */
         if (hasDataEncryption()) {
-            mCryptoParser.parse(myParams);
+            mCryptoParser.parse(configParameters);
             mCryptoEnabled = hasCrypto();
 
             if (!mCryptoEnabled) {
@@ -138,7 +139,13 @@ public class ConfigParser {
     }
 
     public String[] getTopics() {
-        return mApiParser.getTopics();
+        String[] topics = null;
+        if (mApiParser.getTopics() != null) {
+            topics = mApiParser.getTopics();
+        } else if (mApiParser.getTopic() != null) {
+            topics = new String[]{mApiParser.getTopic()};
+        }
+        return topics;
     }
 
     public int getQos() {

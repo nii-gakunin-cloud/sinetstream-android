@@ -19,7 +19,7 @@
  *  under the License.
  */
 
-package jp.ad.sinet.stream.android.config;
+package jp.ad.sinet.stream.android.config.parser;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -31,20 +31,20 @@ import jp.ad.sinet.stream.android.api.InvalidConfigurationException;
 public class CryptoParser extends BaseParser {
 
     /* Entry point */
-    public void parse(@NonNull Map<String,Object> myParams)
+    public void parse(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
-        parseCrypto(myParams);
-        parseCryptoDebug(myParams);
+        parseCrypto(configParameters);
+        parseCryptoDebug(configParameters);
     }
 
     /*
      * Crypto part
      */
     private Boolean mCrypto = null;
-    public void parseCrypto(@NonNull Map<String,Object> myParams)
+    public void parseCrypto(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "crypto"; /* Optional */
-        Map<String,Object> parent = super.parseMap(myParams, key, false);
+        Map<String,Object> parent = super.parseMap(configParameters, key, false);
         if (parent != null) {
             mCrypto = true;
             parseAlgorithm(parent);
@@ -62,10 +62,10 @@ public class CryptoParser extends BaseParser {
     }
 
     private String mAlgorithm = null;
-    private void parseAlgorithm(@NonNull Map<String,Object> myParams)
+    private void parseAlgorithm(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "algorithm"; /* Mandatory */
-        String parsedValue = super.parseString(myParams, key, true);
+        String parsedValue = super.parseString(configParameters, key, true);
         if (parsedValue != null && !parsedValue.equalsIgnoreCase("AES")) {
             throw new InvalidConfigurationException(
                     key + "(" + parsedValue + "): Unsupported value", null);
@@ -79,10 +79,10 @@ public class CryptoParser extends BaseParser {
     }
 
     private Integer mKeyLength = 128; /* default */
-    private void parseKeyLength(@NonNull Map<String,Object> myParams)
+    private void parseKeyLength(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "key_length"; /* Optional */
-        Number parsedValue = super.parseNumber(myParams, key, false);
+        Number parsedValue = super.parseNumber(configParameters, key, false);
         if (parsedValue != null) {
             if (parsedValue instanceof Integer) {
                 Integer probe = (Integer) parsedValue;
@@ -106,10 +106,10 @@ public class CryptoParser extends BaseParser {
     }
 
     private String mMode = null;
-    private void parseMode(@NonNull Map<String,Object> myParams)
+    private void parseMode(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "mode"; /* Mandatory */
-        String parsedValue = super.parseString(myParams, key, true);
+        String parsedValue = super.parseString(configParameters, key, true);
         if (parsedValue != null) {
             /*
              * Cipher Algorithm Modes
@@ -138,10 +138,10 @@ public class CryptoParser extends BaseParser {
     }
 
     private String mPadding = "NoPadding"; /* default */
-    private void parsePadding(@NonNull Map<String,Object> myParams)
+    private void parsePadding(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "padding"; /* Optional */
-        String parsedValue = super.parseString(myParams, key, false);
+        String parsedValue = super.parseString(configParameters, key, false);
         if (parsedValue != null) {
             /*
              * Cipher Algorithm Padding
@@ -177,10 +177,10 @@ public class CryptoParser extends BaseParser {
     }
 
     private String mPassword = null;
-    private void parsePassword(@NonNull Map<String,Object> myParams)
+    private void parsePassword(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "password"; /* Mandatory */
-        String parsedValue = super.parseString(myParams, key, true);
+        String parsedValue = super.parseString(configParameters, key, true);
         if (parsedValue != null) {
             mPassword = parsedValue;
         }
@@ -192,10 +192,10 @@ public class CryptoParser extends BaseParser {
     }
 
     private Boolean mKeyDerivation = null;
-    public void parseKeyDerivation(@NonNull Map<String,Object> myParams)
+    public void parseKeyDerivation(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "key_derivation"; /* Optional */
-        Map<String,Object> parent = super.parseMap(myParams, key, false);
+        Map<String,Object> parent = super.parseMap(configParameters, key, false);
         if (parent != null) {
             mKeyDerivation = true;
             parseKeyDerivationAlgorithm(parent);
@@ -210,10 +210,10 @@ public class CryptoParser extends BaseParser {
     }
 
     private String mKeyDerivationAlgorithm = "PBKDF2WithHmacSHA256"; /* default */
-    private void parseKeyDerivationAlgorithm(@NonNull Map<String,Object> myParams)
+    private void parseKeyDerivationAlgorithm(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "algorithm"; /* Optional */
-        String parsedValue = super.parseString(myParams, key, false);
+        String parsedValue = super.parseString(configParameters, key, false);
         if (parsedValue != null) {
             /*
              * https://docs.oracle.com/javase/8/docs/technotes/guides/security/StandardNames.html#SecretKeyFactory
@@ -250,10 +250,10 @@ public class CryptoParser extends BaseParser {
     }
 
     private Integer mSaltBytes = 8; /* default */
-    private void parseSaltBytes(@NonNull Map<String,Object> myParams)
+    private void parseSaltBytes(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "salt_bytes"; /* Optional */
-        Number parsedValue = super.parseNumber(myParams, key, false);
+        Number parsedValue = super.parseNumber(configParameters, key, false);
         if (parsedValue != null) {
             if (parsedValue instanceof Integer) {
                 Integer probe = (Integer) parsedValue;
@@ -273,10 +273,10 @@ public class CryptoParser extends BaseParser {
     }
 
     private Integer mIteration = 10000; /* default */
-    private void parseIteration(@NonNull Map<String,Object> myParams)
+    private void parseIteration(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "iteration"; /* Optional */
-        Number parsedValue = super.parseNumber(myParams, key, false);
+        Number parsedValue = super.parseNumber(configParameters, key, false);
         if (parsedValue != null) {
             if (parsedValue instanceof Integer) {
                 Integer probe = (Integer) parsedValue;
@@ -296,10 +296,10 @@ public class CryptoParser extends BaseParser {
     }
 
     private Boolean mCryptoDebugEnabled = null;
-    private void parseCryptoDebug(@NonNull Map<String,Object> myParams)
+    private void parseCryptoDebug(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "crypto_debug"; /* Optional */
-        mCryptoDebugEnabled = super.parseBoolean(myParams, key, false);
+        mCryptoDebugEnabled = super.parseBoolean(configParameters, key, false);
     }
 
     @Nullable

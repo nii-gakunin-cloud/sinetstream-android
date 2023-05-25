@@ -19,7 +19,7 @@
  *  under the License.
  */
 
-package jp.ad.sinet.stream.android.config;
+package jp.ad.sinet.stream.android.config.parser;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -31,19 +31,19 @@ import jp.ad.sinet.stream.android.api.InvalidConfigurationException;
 public class MqttTlsParser extends BaseParser {
 
     /* Entry point */
-    public void parse(@NonNull Map<String,Object> myParams)
+    public void parse(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         /* OBSOLETED
-        parseMqttTlsSet(myParams);
-        parseMqttTlsInsecureSet(myParams);
+        parseMqttTlsSet(configParameters);
+        parseMqttTlsInsecureSet(configParameters);
          */
     }
 
     private Boolean mMqttTlsSet = null;
-    private void parseMqttTlsSet(@NonNull Map<String,Object> myParams)
+    private void parseMqttTlsSet(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "tls_set"; /* Optional */
-        Map<String,Object> parent = super.parseMap(myParams, key, false);
+        Map<String,Object> parent = super.parseMap(configParameters, key, false);
         if (parent != null) {
             mMqttTlsSet = true;
 
@@ -68,11 +68,11 @@ public class MqttTlsParser extends BaseParser {
 
     private String mSelfSignedCertificateFile = null; /* PEM format file (xxx.crt) */
     private void setSelfSignedCertificateFile(
-            @NonNull Map<String,Object> myParams)
+            @NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "ca_certs"; /* Optional */
         mSelfSignedCertificateFile
-                = super.parseString(myParams, key, false);
+                = super.parseString(configParameters, key, false);
     }
 
     @Nullable
@@ -82,11 +82,11 @@ public class MqttTlsParser extends BaseParser {
 
     private String mClientCertificateFile = null;  /* PKCS#12/PFX format file (xxx.pfx) */
     private void setClientCertificateFile(
-            @NonNull Map<String,Object> myParams)
+            @NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "certfile"; /* Optional */
         mClientCertificateFile
-                = super.parseString(myParams, key, false);
+                = super.parseString(configParameters, key, false);
     }
 
     @Nullable
@@ -96,11 +96,11 @@ public class MqttTlsParser extends BaseParser {
 
     private String mClientCertificatePassword = null;
     private void setClientCertificatePassword(
-            @NonNull Map<String,Object> myParams)
+            @NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "keyfilePassword"; /* Optional */
         mClientCertificatePassword
-                = super.parseString(myParams, key, false);
+                = super.parseString(configParameters, key, false);
     }
 
     @Nullable
@@ -109,10 +109,10 @@ public class MqttTlsParser extends BaseParser {
     }
 
     private Boolean mMqttTlsInsecureSet = null;
-    private void parseMqttTlsInsecureSet(@NonNull Map<String,Object> myParams)
+    private void parseMqttTlsInsecureSet(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "tls_insecure_set"; /* Optional */
-        Map<String,Object> parent = super.parseMap(myParams, key, false);
+        Map<String,Object> parent = super.parseMap(configParameters, key, false);
         if (parent != null) {
             mMqttTlsInsecureSet = true;
             setHttpsHostnameVerificationEnabled(parent);
@@ -126,11 +126,11 @@ public class MqttTlsParser extends BaseParser {
 
     private Boolean mHttpsHostnameVerificationEnabled = null;
     private void setHttpsHostnameVerificationEnabled(
-            @NonNull Map<String,Object> myParams)
+            @NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "value"; /* Optional */
         mHttpsHostnameVerificationEnabled =
-                super.parseBoolean(myParams, key, false);
+                super.parseBoolean(configParameters, key, false);
     }
 
     @Nullable

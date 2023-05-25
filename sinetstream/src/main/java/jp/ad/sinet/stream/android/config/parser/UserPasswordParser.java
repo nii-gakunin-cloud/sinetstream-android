@@ -19,7 +19,7 @@
  *  under the License.
  */
 
-package jp.ad.sinet.stream.android.config;
+package jp.ad.sinet.stream.android.config.parser;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -32,15 +32,15 @@ import jp.ad.sinet.stream.android.mqtt.MqttAsyncMessageIOKt;
 public class UserPasswordParser extends BaseParser {
 
     /* Entry point */
-    public void parse(@NonNull Map<String,Object> myParams)
+    public void parse(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
-        parseUserPassword(myParams);
+        parseUserPassword(configParameters);
     }
 
-    private void parseUserPassword(@NonNull Map<String,Object> myParams)
+    private void parseUserPassword(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = MqttAsyncMessageIOKt.KEY_MQTT_USER_PW;  /* Optional */
-        Map<String,Object> parent = parseMap(myParams, key, false);
+        Map<String,Object> parent = parseMap(configParameters, key, false);
         if (parent != null) {
             /*
              * Both UserName and Password must be set, if we use
@@ -52,10 +52,10 @@ public class UserPasswordParser extends BaseParser {
     }
 
     private String mUserName = null;
-    private void parseUserName(@NonNull Map<String,Object> myParams)
+    private void parseUserName(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = MqttAsyncMessageIOKt.KEY_MQTT_USERNAME; /* Mandatory */
-        mUserName = parseAlphaNumeric(myParams, key, true);
+        mUserName = parseAlphaNumeric(configParameters, key, true);
     }
 
     @Nullable
@@ -64,10 +64,10 @@ public class UserPasswordParser extends BaseParser {
     }
 
     private String mPassword = null;
-    private void parsePassword(@NonNull Map<String,Object> myParams)
+    private void parsePassword(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = MqttAsyncMessageIOKt.KEY_MQTT_PASSWORD; /* Mandatory */
-        mPassword = parseAlphaNumeric(myParams, key, true);
+        mPassword = parseAlphaNumeric(configParameters, key, true);
     }
 
     @Nullable

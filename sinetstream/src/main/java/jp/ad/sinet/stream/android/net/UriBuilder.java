@@ -26,9 +26,9 @@ import androidx.annotation.NonNull;
 import java.util.ArrayList;
 
 import jp.ad.sinet.stream.android.api.InvalidConfigurationException;
-import jp.ad.sinet.stream.android.config.CommonParser;
-import jp.ad.sinet.stream.android.config.ConfigParser;
-import jp.ad.sinet.stream.android.config.MqttParser;
+import jp.ad.sinet.stream.android.config.parser.CommonParser;
+import jp.ad.sinet.stream.android.config.parser.ConfigParser;
+import jp.ad.sinet.stream.android.config.parser.MqttParser;
 
 public class UriBuilder {
     private final ConfigParser mConfigParser;

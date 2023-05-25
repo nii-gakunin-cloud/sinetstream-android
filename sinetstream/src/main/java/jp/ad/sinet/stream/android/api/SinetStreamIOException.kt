@@ -23,10 +23,10 @@ package jp.ad.sinet.stream.android.api
 
 open class SinetStreamIOException :
     SinetStreamException {
-    constructor() {}
-    constructor(message: String?) : super(message, null) {}
-    constructor(message: String?, cause: Throwable?) : super(message, cause) {}
-    constructor(cause: Throwable?) : super(null, cause) {}
+    constructor()
+    constructor(message: String?) : super(message, null)
+    constructor(message: String?, cause: Throwable?) : super(message, cause)
+    constructor(cause: Throwable?) : super(null, cause)
 
     companion object {
         private const val serialVersionUID = 471897996840502993L

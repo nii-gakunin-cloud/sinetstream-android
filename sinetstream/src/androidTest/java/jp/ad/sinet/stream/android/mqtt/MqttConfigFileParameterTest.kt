@@ -29,7 +29,6 @@ import jp.ad.sinet.stream.android.api.InvalidConfigurationException
 import jp.ad.sinet.stream.android.api.ValueType
 import jp.ad.sinet.stream.android.api.low.AsyncMessageReader
 import jp.ad.sinet.stream.android.api.low.AsyncMessageWriter
-import org.junit.Assert.assertEquals
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertTrue
 import java.io.File
@@ -44,14 +43,14 @@ class ServiceTest : ReaderWriterTest {
     @Test
     fun asyncWriter() {
         super.asyncWriter { writer ->
-            assertEquals(TEST_SERVICE, writer.service)
+            Assertions.assertEquals(TEST_SERVICE, writer.service)
         }
     }
 
     @Test
     fun asyncReader() {
         super.asyncReader { reader ->
-            assertEquals(TEST_SERVICE, reader.service)
+            Assertions.assertEquals(TEST_SERVICE, reader.service)
         }
     }
 
@@ -138,14 +137,14 @@ class MqttTopicTest {
         @Test
         fun asyncWriter() {
             super.asyncWriter { writer ->
-                assertEquals(topic, writer.topic)
+                Assertions.assertEquals(topic, writer.topic)
             }
         }
 
         @Test
         fun asyncReader() {
             super.asyncReader { reader ->
-                assertEquals(topic, reader.topic)
+                Assertions.assertEquals(topic, reader.topic)
             }
         }
 
@@ -165,14 +164,14 @@ class MqttTopicTest {
         @Test
         fun asyncWriter() {
             super.asyncWriter { writer ->
-                assertEquals(topic, writer.topic)
+                Assertions.assertEquals(topic, writer.topic)
             }
         }
 
         @Test
         fun asyncReader() {
             super.asyncReader { reader ->
-                assertEquals(topic, reader.topic)
+                Assertions.assertEquals(topic, reader.topic)
             }
         }
 
@@ -203,8 +202,8 @@ class MqttTopicTest {
         fun asyncReader() {
             super.asyncReader { reader ->
                 val topics = listOf(topic, topic2)
-                assertEquals(topics, reader.topics)
-                assertEquals(topics.joinToString(), reader.topic)
+                Assertions.assertEquals(topics, reader.topics)
+                Assertions.assertEquals(topics.joinToString(), reader.topic)
             }
         }
 
@@ -288,14 +287,14 @@ class ClientIdTest {
         @Test
         fun asyncWriter() {
             super.asyncWriter { writer ->
-                assertEquals(clientId, writer.clientId)
+                Assertions.assertEquals(clientId, writer.clientId)
             }
         }
 
         @Test
         fun asyncReader() {
             super.asyncReader { reader ->
-                assertEquals(clientId, reader.clientId)
+                Assertions.assertEquals(clientId, reader.clientId)
             }
         }
 
@@ -322,14 +321,14 @@ class ConsistencyTest {
         @Test
         fun asyncWriter() {
             super.asyncWriter { writer ->
-                assertEquals(consistency, writer.consistency)
+                Assertions.assertEquals(consistency, writer.consistency)
             }
         }
 
         @Test
         fun asyncReader() {
             super.asyncReader { reader ->
-                assertEquals(consistency, reader.consistency)
+                Assertions.assertEquals(consistency, reader.consistency)
             }
         }
 
@@ -373,14 +372,14 @@ class ConsistencyTest {
         @Test
         fun asyncWriter() {
             super.asyncWriter { writer ->
-                assertEquals(consistency, writer.consistency)
+                Assertions.assertEquals(consistency, writer.consistency)
             }
         }
 
         @Test
         fun asyncReader() {
             super.asyncReader { reader ->
-                assertEquals(consistency, reader.consistency)
+                Assertions.assertEquals(consistency, reader.consistency)
             }
         }
 
@@ -440,14 +439,14 @@ class ValueTypeTest {
         @Test
         fun asyncWriter() {
             super.asyncWriter { writer ->
-                assertEquals(valueType, writer.valueType)
+                Assertions.assertEquals(valueType, writer.valueType)
             }
         }
 
         @Test
         fun asyncReader() {
             super.asyncReader { reader ->
-                assertEquals(valueType, reader.valueType)
+                Assertions.assertEquals(valueType, reader.valueType)
             }
         }
 
@@ -485,14 +484,14 @@ class ValueTypeTest {
         @Test
         fun asyncWriter() {
             super.asyncWriter { writer ->
-                assertEquals(valueType, writer.valueType)
+                Assertions.assertEquals(valueType, writer.valueType)
             }
         }
 
         @Test
         fun asyncReader() {
             super.asyncReader { reader ->
-                assertEquals(valueType, reader.valueType)
+                Assertions.assertEquals(valueType, reader.valueType)
             }
         }
 
@@ -552,14 +551,14 @@ class BrokerUrlTest {
         @Test
         fun asyncWriter() {
             super.mqttAsyncWriter { writer ->
-                assertEquals(expectedBrokerUrl, writer.brokerUrl)
+                Assertions.assertEquals(expectedBrokerUrl, writer.brokerUrl)
             }
         }
 
         @Test
         fun asyncReader() {
             super.mqttAsyncReader { reader ->
-                assertEquals(expectedBrokerUrl, reader.brokerUrl)
+                Assertions.assertEquals(expectedBrokerUrl, reader.brokerUrl)
             }
         }
     }
@@ -660,7 +659,7 @@ class RetainTest {
         @Test
         fun asyncWriter() {
             super.mqttAsyncWriter { writer ->
-                assertEquals(expected, writer.retain)
+                Assertions.assertEquals(expected, writer.retain)
             }
         }
 
@@ -729,14 +728,14 @@ class ProtocolTest {
         @Test
         fun asyncWriter() {
             super.mqttAsyncWriter { writer ->
-                assertEquals(expected, writer.protocol)
+                Assertions.assertEquals(expected, writer.protocol)
             }
         }
 
         @Test
         fun asyncReader() {
             super.mqttAsyncReader { reader ->
-                assertEquals(expected, reader.protocol)
+                Assertions.assertEquals(expected, reader.protocol)
             }
         }
     }
@@ -847,18 +846,22 @@ class ConnectParametersTest {
 
         @Test
         fun asyncWriter() {
+            /* Writer.connectOptions has obsoleted.
             super.mqttAsyncWriter { writer ->
                 assertTrue(writer.connectOptions.isAutomaticReconnect)
                 assertEquals(30, writer.connectOptions.keepAliveInterval)
             }
+             */
         }
 
         @Test
         fun asyncReader() {
+            /* Reader.connectOptions has obsoleted.
             super.mqttAsyncReader { reader ->
                 assertTrue(reader.connectOptions.isAutomaticReconnect)
                 assertEquals(30, reader.connectOptions.keepAliveInterval)
             }
+             */
         }
 
         @BeforeEach
@@ -919,7 +922,7 @@ interface MqttMessageIOTest : ReaderWriterTest {
 
     fun mqttAsyncWriter(assertion: MqttWriterOp?) {
         super.asyncWriter { writer ->
-            assertEquals(MqttAsyncMessageWriter::class, writer::class)
+            Assertions.assertEquals(MqttAsyncMessageWriter::class, writer::class)
             if (writer is MqttAsyncMessageWriter) {
                 assertion?.invoke(writer)
             }
@@ -928,7 +931,7 @@ interface MqttMessageIOTest : ReaderWriterTest {
 
     fun mqttAsyncReader(assertion: MqttReaderOp?) {
         super.asyncReader { reader ->
-            assertEquals(MqttAsyncMessageReader::class, reader::class)
+            Assertions.assertEquals(MqttAsyncMessageReader::class, reader::class)
             if (reader is MqttAsyncMessageReader) {
                 assertion?.invoke(reader)
             }

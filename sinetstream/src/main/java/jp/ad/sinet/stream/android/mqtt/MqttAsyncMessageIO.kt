@@ -21,17 +21,16 @@
 
 package jp.ad.sinet.stream.android.mqtt
 
-// import org.eclipse.paho.android.service.MqttDeliveryTokenAndroid
 import android.content.Context
 import android.util.Log
-import jp.ad.sinet.stream.android.AndroidConfigLoader.KEY_DESERIALIZER
-import jp.ad.sinet.stream.android.AndroidConfigLoader.KEY_SERIALIZER
 import jp.ad.sinet.stream.android.api.*
 import jp.ad.sinet.stream.android.api.low.AsyncMessageReader
 import jp.ad.sinet.stream.android.api.low.AsyncMessageWriter
 import jp.ad.sinet.stream.android.api.low.ReaderMessageCallback
 import jp.ad.sinet.stream.android.api.low.WriterMessageCallback
-import jp.ad.sinet.stream.android.config.ConfigParser
+import jp.ad.sinet.stream.android.config.local.AndroidConfigLoader.KEY_DESERIALIZER
+import jp.ad.sinet.stream.android.config.local.AndroidConfigLoader.KEY_SERIALIZER
+import jp.ad.sinet.stream.android.config.parser.ConfigParser
 import jp.ad.sinet.stream.android.crypto.CipherHandler
 import jp.ad.sinet.stream.android.net.UriBuilder
 import jp.ad.sinet.stream.android.serdes.CompositeDeserializer
@@ -56,7 +55,9 @@ const val KEY_MQTT_CONNECT_TIMEOUT = "connect_timeout"
 
 abstract class MqttMessageIO(
     context: Context?,
-    config: Map<String, Any>
+    config: Map<String, Any>,
+    attachments: Map<String, Any>?,
+    debugEnabled: Boolean
 ) {
     val mContext: Context? = context
     val configParser: ConfigParser = ConfigParser()
@@ -70,6 +71,7 @@ abstract class MqttMessageIO(
     val retain: Boolean
     val valueType: ValueType
     val clientId: String
+    val mDebugEnabled: Boolean = debugEnabled // Generic DEBUG switch, not just MQTT
     val mCipherHandler: CipherHandler?
     val mCryptoPassword: String
     val mServerUris: Array<String>
@@ -78,7 +80,7 @@ abstract class MqttMessageIO(
     private val isClosed: AtomicBoolean = AtomicBoolean(false)
 
     init {
-        configParser.parse(config)
+        configParser.parse(config, attachments)
 
         topicArray = configParser.topics
         qosArray = IntArray(topicArray.size) { configParser.qos }
@@ -90,7 +92,9 @@ abstract class MqttMessageIO(
         mServerUris = uriBuilder.buildBrokerUris()
         client = MqttAndroidClient(context, mServerUris[0], clientId)
 
-        if (configParser.mqttDebugEnabled()) {
+        /* Paho Mqtt Android Client library has its own debug option */
+        val mqttDebugEnabled = configParser.mqttDebugEnabled()
+        if (mqttDebugEnabled) {
             setMqttTrace()
         }
 
@@ -212,17 +216,17 @@ abstract class MqttMessageIO(
         val cipherHandler: CipherHandler
         try {
             cipherHandler = CipherHandler(
-                    configParser.keyLength,
-                    configParser.keyDerivationAlgorithm,
-                    configParser.cryptoAlgorithm,
-                    configParser.saltBytes,
-                    configParser.iterationCount)
+                configParser.keyLength,
+                configParser.keyDerivationAlgorithm,
+                configParser.cryptoAlgorithm,
+                configParser.saltBytes,
+                configParser.iterationCount)
 
             cipherHandler.setTransformation(
-                    configParser.cryptoAlgorithm,
-                    configParser.feedbackMode,
-                    configParser.paddingScheme,
-                    configParser.cryptoDebugEnabled)
+                configParser.cryptoAlgorithm,
+                configParser.feedbackMode,
+                configParser.paddingScheme,
+                configParser.cryptoDebugEnabled)
         } catch (e: CryptoException) {
             throw CryptoException(e.message, e)
         }
@@ -233,8 +237,10 @@ abstract class MqttMessageIO(
 class MqttAsyncMessageReader<T>(
     context: Context?,
     override val service: String,
-    override val config: Map<String, Any>
-) : MqttMessageIO(context, config),
+    override val config: Map<String, Any>,
+    attachments: Map<String, Any>?,
+    debugEnabled: Boolean
+) : MqttMessageIO(context, config, attachments, debugEnabled),
     AsyncMessageReader<T> {
 
     /* Following parameters are obsoleted, but leave here for now... */
@@ -250,6 +256,7 @@ class MqttAsyncMessageReader<T>(
         )
 
     private lateinit var mCallback: ReaderMessageCallback<T>
+    private lateinit var mMqttConnectOptions: MqttConnectOptions
 
     companion object {
         private val TAG = LOG_TAG + "(" + MqttAsyncMessageReader::class.java.simpleName + ")"
@@ -260,22 +267,45 @@ class MqttAsyncMessageReader<T>(
 
         client.setCallback(object : MqttCallbackExtended {
             override fun connectComplete(reconnect: Boolean, serverURI: String) {
-                Log.d(TAG, "connectComplete {reconnect($reconnect),serverURI($serverURI)")
-                if (reconnect) {
-                    /* Automatic reconnect case */
-                    Log.d(TAG, "Reconnected to Server($serverURI)")
-                } else {
-                    Log.d(TAG, "Connected to Server($serverURI)")
+                if (mDebugEnabled) {
+                    Log.d(TAG, "connectComplete {reconnect($reconnect),serverURI($serverURI)")
+                    if (reconnect) {
+                        /* Automatic reconnect case */
+                        Log.d(TAG, "Reconnected to Server($serverURI)")
+                    } else {
+                        /* Initial connection case */
+                        Log.d(TAG, "Connected to Server($serverURI)")
+                    }
                 }
-                callback.onConnectionEstablished()
+                callback.onConnectionEstablished(reconnect)
             }
 
             override fun connectionLost(cause: Throwable?) {
                 if (cause != null) {
                     Log.w(TAG, "connectionLost: $cause")
+                    if (cause is MqttException) {
+                        if (mMqttConnectOptions.isAutomaticReconnect) {
+                            when (cause.reasonCode) {
+                                MqttException.REASON_CODE_CLIENT_TIMEOUT.toInt(),
+                                    /* Idle timer has expired */
+                                MqttException.REASON_CODE_WRITE_TIMEOUT.toInt(),
+                                    /* IP network seems OK, but broker does not respond */
+                                MqttException.REASON_CODE_CONNECTION_LOST.toInt(),
+                                    /* Connection closed by peer */
+                                -> {
+                                    Log.w(TAG, "Going to try auto-reconnect...")
+                                    callback.onReconnectInProgress()
+                                    return
+                                }
+                                else -> {}
+                            }
+                        }
+                    }
                     callback.onConnectionClosed(cause.toString())
                 } else {
-                    Log.d(TAG, "Disconnect completed")
+                    if (mDebugEnabled) {
+                        Log.d(TAG, "Disconnect completed")
+                    }
                     callback.onConnectionClosed(null)
                 }
             }
@@ -300,7 +330,9 @@ class MqttAsyncMessageReader<T>(
                     val message = compositeDeserializer.toMessage(topic, payload, mqttMessage)
 
                     if (message != null) {
-                        Log.d(TAG, "messageArrived: $message")
+                        if (mDebugEnabled) {
+                            Log.d(TAG, "messageArrived: $message")
+                        }
                         callback.onMessageReceived(message)
                     } else {
                         Log.w(TAG, "messageArrived: Failed to deserialize")
@@ -312,7 +344,9 @@ class MqttAsyncMessageReader<T>(
 
             override fun deliveryComplete(token: IMqttDeliveryToken) {
                 // No such case for MqttMessageReader
-                Log.d(TAG, "deliveryComplete: token: $token")
+                if (mDebugEnabled) {
+                    Log.d(TAG, "deliveryComplete: token: $token")
+                }
             }
         })
     }
@@ -333,25 +367,36 @@ class MqttAsyncMessageReader<T>(
         val builder = MqttConnectOptionBuilder(
             mContext!!,
             object : MqttConnectOptionBuilder.MqttConnectOptionBuilderListener {
-                override fun onError(errmsg: String) {
-                    mCallback.onError(errmsg, null)
+                override fun onError(description: String) {
+                    mCallback.onError(description, null)
                 }
                 override fun onFinished(mqttConnectOptions: MqttConnectOptions) {
+                    mMqttConnectOptions = mqttConnectOptions
+                    if (mDebugEnabled) {
+                        Log.d(TAG, "MQTT: $mqttConnectOptions")
+                    }
                     internalConnect(mqttConnectOptions)
                 }
             },
             configParser,
             mServerUris
         )
+        if (mDebugEnabled) {
+            builder.enableDebug(true)
+        }
         builder.buildMqttConnectOptions()
     }
 
     fun internalConnect(connectOptions: MqttConnectOptions) {
-        Log.d(TAG, "Going to CONNECT " + client.serverURI)
+        if (mDebugEnabled) {
+            Log.d(TAG, "Going to CONNECT " + client.serverURI)
+        }
         try {
             client.connect(connectOptions, null, object : IMqttActionListener {
                 override fun onSuccess(asyncActionToken: IMqttToken) {
-                    Log.d(TAG, "connect: OK")
+                    if (mDebugEnabled) {
+                        Log.d(TAG, "connect: OK")
+                    }
                     /*
                      * NB:
                      * At this point, async connection request has merely accepted.
@@ -378,11 +423,15 @@ class MqttAsyncMessageReader<T>(
          * we need to call MqttAndroid.disconnect() to clean the internal
          * state of the MqttService.
          */
-        Log.d(TAG, "Going to DISCONNECT " + client.serverURI)
+        if (mDebugEnabled) {
+            Log.d(TAG, "Going to DISCONNECT " + client.serverURI)
+        }
         try {
             client.disconnect(null, object : IMqttActionListener {
                 override fun onSuccess(asyncActionToken: IMqttToken) {
-                    Log.d(TAG, "disconnect: OK")
+                    if (mDebugEnabled) {
+                        Log.d(TAG, "disconnect: OK")
+                    }
                     mCallback.onConnectionClosed(null/* Normal closure */)
                 }
 
@@ -399,16 +448,20 @@ class MqttAsyncMessageReader<T>(
 
     override fun subscribe() {
         if (client.isConnected) {
-            Log.d(TAG, "Going to SUBSCRIBE " + dumpTopics(topicArray))
+            if (mDebugEnabled) {
+                Log.d(TAG, "Going to SUBSCRIBE " + dumpTopics(topicArray))
+            }
             try {
                 client.subscribe(topicArray, qosArray,
                     null, object : IMqttActionListener {
                         override fun onSuccess(asyncActionToken: IMqttToken?) {
-                            if (asyncActionToken != null) {
-                                Log.d(TAG, "subscribe: " +
-                                        dumpTopics(asyncActionToken.topics) + ": OK")
-                            } else {
-                                Log.d(TAG, "subscribe: OK")
+                            if (mDebugEnabled) {
+                                if (asyncActionToken != null) {
+                                    Log.d(TAG, "subscribe: " +
+                                            dumpTopics(asyncActionToken.topics) + ": OK")
+                                } else {
+                                    Log.d(TAG, "subscribe: OK")
+                                }
                             }
                             mCallback.onSubscribed()
                         }
@@ -437,26 +490,33 @@ class MqttAsyncMessageReader<T>(
 
     override fun unsubscribe() {
         if (client.isConnected) {
-            Log.d(TAG, "Going to UNSUBSCRIBE " + dumpTopics(topicArray))
+            if (mDebugEnabled) {
+                Log.d(TAG, "Going to UNSUBSCRIBE " + dumpTopics(topicArray))
+            }
             try {
                 client.unsubscribe(topicArray,
                     null, object : IMqttActionListener {
                         override fun onSuccess(asyncActionToken: IMqttToken?) {
-                            if (asyncActionToken != null && asyncActionToken.topics != null) {
-                                Log.d(TAG, "unsubscribe: " +
-                                        dumpTopics(asyncActionToken.topics) + ": OK")
-                            } else {
-                                Log.d(TAG, "unsubscribe: OK")
+                            if (mDebugEnabled) {
+                                if (asyncActionToken != null && asyncActionToken.topics != null) {
+                                    Log.d(TAG, "unsubscribe: " +
+                                            dumpTopics(asyncActionToken.topics) + ": OK"
+                                    )
+                                } else {
+                                    Log.d(TAG, "unsubscribe: OK")
+                                }
                             }
                             mCallback.onUnsubscribed()
                         }
 
                         override fun onFailure(asyncActionToken: IMqttToken?, exception: Throwable?) {
-                            if (asyncActionToken != null && asyncActionToken.topics != null) {
-                                Log.d(TAG, "unsubscribe: " +
-                                        dumpTopics(asyncActionToken.topics) + ": NG")
-                            } else {
-                                Log.d(TAG, "unsubscribe: NG")
+                            if (mDebugEnabled) {
+                                if (asyncActionToken != null && asyncActionToken.topics != null) {
+                                    Log.d(TAG, "unsubscribe: " +
+                                                dumpTopics(asyncActionToken.topics) + ": NG")
+                                } else {
+                                    Log.d(TAG, "unsubscribe: NG")
+                                }
                             }
                             mCallback.onError("unsubscribe: NG", exception)
                         }
@@ -483,8 +543,10 @@ class MqttAsyncMessageReader<T>(
 class MqttAsyncMessageWriter<T>(
     context: Context?,
     override val service: String,
-    override val config: Map<String, Any>
-) : MqttMessageIO(context, config),
+    override val config: Map<String, Any>,
+    attachments: Map<String, Any>?,
+    debugEnabled: Boolean
+) : MqttMessageIO(context, config, attachments, debugEnabled),
     AsyncMessageWriter<T> {
 
     /* Following parameters are obsoleted, but leave here for now... */
@@ -500,6 +562,10 @@ class MqttAsyncMessageWriter<T>(
 
     private lateinit var mCallback: WriterMessageCallback<T>
 
+    private var mMaxInFlight: Int = 0
+    private var mInFlightMessages: Int = 0
+    private lateinit var mMqttConnectOptions: MqttConnectOptions
+
     companion object {
         private val TAG = LOG_TAG + "(" + MqttAsyncMessageWriter::class.java.simpleName + ")"
     }
@@ -509,22 +575,45 @@ class MqttAsyncMessageWriter<T>(
 
         client.setCallback(object : MqttCallbackExtended {
             override fun connectComplete(reconnect: Boolean, serverURI: String) {
-                Log.d(TAG, "connectComplete {reconnect($reconnect),serverURI($serverURI)")
-                if (reconnect) {
-                    /* Automatic reconnect case */
-                    Log.d(TAG, "Reconnected to Server($serverURI)")
-                } else {
-                    Log.d(TAG, "Connected to Server($serverURI)")
+                if (mDebugEnabled) {
+                    Log.d(TAG, "connectComplete {reconnect($reconnect),serverURI($serverURI)")
+                    if (reconnect) {
+                        /* Automatic reconnect case */
+                        Log.d(TAG, "Reconnected to Server($serverURI)")
+                    } else {
+                        /* Initial connection case */
+                        Log.d(TAG, "Connected to Server($serverURI)")
+                    }
                 }
-                callback.onConnectionEstablished()
+                callback.onConnectionEstablished(reconnect)
             }
 
             override fun connectionLost(cause: Throwable?) {
                 if (cause != null) {
                     Log.w(TAG, "connectionLost: $cause")
+                    if (cause is MqttException) {
+                        if (mMqttConnectOptions.isAutomaticReconnect) {
+                            when (cause.reasonCode) {
+                                MqttException.REASON_CODE_CLIENT_TIMEOUT.toInt(),
+                                    /* Idle timer has expired */
+                                MqttException.REASON_CODE_WRITE_TIMEOUT.toInt(),
+                                    /* IP network seems OK, but broker does not respond */
+                                MqttException.REASON_CODE_CONNECTION_LOST.toInt(),
+                                    /* Connection closed by peer */
+                                -> {
+                                    Log.w(TAG, "Going to try auto-reconnect...")
+                                    callback.onReconnectInProgress()
+                                    return
+                                }
+                                else -> {}
+                            }
+                        }
+                    }
                     callback.onConnectionClosed(cause.toString())
                 } else {
-                    Log.d(TAG, "Disconnect completed")
+                    if (mDebugEnabled) {
+                        Log.d(TAG, "Disconnect completed")
+                    }
                     callback.onConnectionClosed(null)
                 }
             }
@@ -536,11 +625,15 @@ class MqttAsyncMessageWriter<T>(
                  * This function seems to be called only if client_id is
                  * specified in the SINETStream config file.
                  */
-                Log.d(TAG, "messageArrived: topic($topic),message(...)")
+                if (mDebugEnabled) {
+                    Log.d(TAG, "messageArrived: topic($topic),message(...)")
+                }
             }
 
             override fun deliveryComplete(token: IMqttDeliveryToken) {
-                Log.d(TAG, "deliveryComplete: token: $token")
+                if (mDebugEnabled) {
+                    Log.d(TAG, "deliveryComplete: token: $token")
+                }
                 /*
                  * As IMqttActionListener#onSuccess() for publish() must have
                  * already called, this callback can be omitted.
@@ -566,25 +659,38 @@ class MqttAsyncMessageWriter<T>(
         val builder = MqttConnectOptionBuilder(
             mContext!!,
             object : MqttConnectOptionBuilder.MqttConnectOptionBuilderListener {
-                override fun onError(errmsg: String) {
-                    mCallback.onError(errmsg, null)
+                override fun onError(description: String) {
+                    mCallback.onError(description, null)
                 }
                 override fun onFinished(mqttConnectOptions: MqttConnectOptions) {
+                    mMqttConnectOptions = mqttConnectOptions
+                    mMaxInFlight = mqttConnectOptions.maxInflight    /* default: 10 */
+                    if (mDebugEnabled) {
+                        Log.d(TAG, "MQTT: $mqttConnectOptions")
+                        Log.d(TAG, "Max InFlight: $mMaxInFlight")
+                    }
                     internalConnect(mqttConnectOptions)
                 }
             },
             configParser,
             mServerUris
         )
+        if (mDebugEnabled) {
+            builder.enableDebug(true)
+        }
         builder.buildMqttConnectOptions()
     }
 
     fun internalConnect(connectOptions: MqttConnectOptions) {
-        Log.d(TAG, "Going to CONNECT " + client.serverURI)
+        if (mDebugEnabled) {
+            Log.d(TAG, "Going to CONNECT " + client.serverURI)
+        }
         try {
             client.connect(connectOptions, null, object : IMqttActionListener {
                 override fun onSuccess(asyncActionToken: IMqttToken) {
-                    Log.d(TAG, "connect: OK")
+                    if (mDebugEnabled) {
+                        Log.d(TAG, "connect: OK")
+                    }
                     /*
                      * NB:
                      * At this point, async connection request has merely accepted.
@@ -611,11 +717,15 @@ class MqttAsyncMessageWriter<T>(
          * we need to call MqttAndroid.disconnect() to clean the internal
          * state of the MqttService.
          */
-        Log.d(TAG, "Going to DISCONNECT " + client.serverURI)
+        if (mDebugEnabled) {
+            Log.d(TAG, "Going to DISCONNECT " + client.serverURI)
+        }
         try {
             client.disconnect(null, object : IMqttActionListener {
                 override fun onSuccess(asyncActionToken: IMqttToken) {
-                    Log.d(TAG, "disconnect: OK")
+                    if (mDebugEnabled) {
+                        Log.d(TAG, "disconnect: OK")
+                    }
                     mCallback.onConnectionClosed(null/* Normal closure */)
                 }
 
@@ -630,6 +740,10 @@ class MqttAsyncMessageWriter<T>(
 
     override fun publish(message: T, userData: Any?) {
         if (client.isConnected) {
+            if (mInFlightMessages >= mMaxInFlight) {
+                Log.w(TAG, "Reached to the Max InFlight limit, skip publish")
+                return
+            }
             try {
                 var payload = compositeSerializer.toPayload(message)
                 if (payload == null) {
@@ -652,14 +766,57 @@ class MqttAsyncMessageWriter<T>(
                 client.publish(topicArray[0], payload, qosArray[0], retain,
                     null, object : IMqttActionListener {
                         override fun onSuccess(asyncActionToken: IMqttToken?) {
-                            Log.d(TAG, "publish: OK")
+                            if (mDebugEnabled) {
+                                Log.d(TAG, "publish: OK")
+                            }
+                            mInFlightMessages--
                             mCallback.onPublished(message, userData)
                         }
 
                         override fun onFailure(asyncActionToken: IMqttToken?, exception: Throwable?) {
+                            mInFlightMessages--
+                            if (mInFlightMessages > 0) {
+                                Log.e(TAG, "publish failed: $exception" + "\n" +
+                                        "InFlight(" + mInFlightMessages + ")")
+                                /* Swallow errors for inFlight publish requests */
+                                return
+                            }
+                            if (exception is MqttException) {
+                                if (mMqttConnectOptions.isAutomaticReconnect) {
+                                    when (exception.reasonCode) {
+                                        MqttException.REASON_CODE_CLIENT_TIMEOUT.toInt(),
+                                            /* Idle timer has expired */
+                                        MqttException.REASON_CODE_WRITE_TIMEOUT.toInt(),
+                                            /* IP network seems OK, but broker does not respond */
+                                        MqttException.REASON_CODE_CONNECTION_LOST.toInt(),
+                                            /* Connection closed by peer */
+                                        -> {
+                                            Log.w(TAG, "Going to try auto-reconnect...")
+                                            mCallback.onReconnectInProgress()
+                                            return
+                                        }
+                                        else -> {
+                                            /*
+                                             * Simply calling mCallback.onError() may cause
+                                             * catastrophic active loop.
+                                             * Forcibly close the MQTT library to abort further
+                                             * network activities.
+                                             */
+                                            Log.w(TAG, "Irrecoverable network failure, give up")
+                                            close()
+                                        }
+                                    }
+                                }
+                            }
                             mCallback.onError("publish: NG", exception)
                         }
                     })
+
+                mInFlightMessages++
+                if (mDebugEnabled) {
+                    Log.d(TAG, "Publishing: " +
+                            "now(" + mInFlightMessages + "), max(" + mMaxInFlight + ")")
+                }
             } catch (exception: MqttPersistenceException) {
                 mCallback.onError("publish: EX", exception)
             } catch (exception: IllegalArgumentException) {

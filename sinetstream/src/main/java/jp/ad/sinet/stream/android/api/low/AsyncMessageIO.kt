@@ -83,17 +83,33 @@ interface AsyncMessageReader<T> :
 interface ReaderMessageCallback<T> {
     /**
      * Called when AsyncMessageReader.connect() has completed successfully.
+     *
+     * @param reconnect {@code false} if this is the initial connection.
      */
-    fun onConnectionEstablished()
+    fun onConnectionEstablished(reconnect: Boolean)
 
     /**
-     * Called when the connection to the server has closed.
-     * Cases are 1) user requested disconnect and completed normally,
+     * Called when the broker connection has closed.
+     * Possible cases are 1) user requested disconnect and completed normally,
      * or 2) Connection has closed by peer unexpectedly.
      *
      * @param reason the reason behind the loss of connection, {@code null} if normal closure.
      */
     fun onConnectionClosed(reason: String?)
+
+    /**
+     * Called when the broker connection has lost, and the auto-reconnect
+     * sequence has triggered within the Paho Mqtt Android client library.
+     * Once this attempt successfully completed, {@link onConnectionEstablished()}
+     * will be called. Otherwise {@link onError()} will be called.
+     *
+     * NB1: This method is effective only if the automatic reconnect option
+     * in the MqttConnectOptions has set as enabled.
+     *
+     * NB2: Once this method has called, user should stop calling {@link publish()}
+     * until further notice by {@link onConnectionEstablished()}.
+     */
+    fun onReconnectInProgress()
 
     /**
      * Called when AsyncMessageWriter.subscribe() has completed successfully.
@@ -114,7 +130,8 @@ interface ReaderMessageCallback<T> {
 
     /**
      * Called when any error condition has met. The error might be detected
-     * either at the sinetstream-android level, or at underneath library level.
+     * either at this sinetstream-android library, or at somewhere in the
+     * lower level libraries.
      *
      * @param description brief description of the error, not {@code null}.
      * @param exception optional info detected at the error point.
@@ -156,17 +173,33 @@ interface AsyncMessageWriter<T> :
 interface WriterMessageCallback<T> {
     /**
      * Called when AsyncMessageWriter.connect() has completed successfully.
+     *
+     * @param reconnect {@code false} if this is the initial connection.
      */
-    fun onConnectionEstablished()
+    fun onConnectionEstablished(reconnect: Boolean)
 
     /**
-     * Called when the connection to the server has closed.
-     * Cases are 1) user requested disconnect and completed normally,
+     * Called when the broker connection has closed.
+     * Possible cases are 1) user requested disconnect and completed normally,
      * or 2) Connection has closed by peer unexpectedly.
      *
      * @param reason the reason behind the loss of connection, {@code null} if normal closure.
      */
     fun onConnectionClosed(reason: String?)
+
+    /**
+     * Called when the broker connection has lost, and the auto-reconnect
+     * sequence has triggered within the Paho Mqtt Android client library.
+     * Once this attempt successfully completed, {@link onConnectionEstablished()}
+     * will be called. Otherwise {@link onError()} will be called.
+     *
+     * NB1: This method is effective only if the automatic reconnect option
+     * in the MqttConnectOptions has set as enabled.
+     *
+     * NB2: Once this method has called, user should stop calling {@link publish()}
+     * until further notice by {@link onConnectionEstablished()}.
+     */
+    fun onReconnectInProgress()
 
     /**
      * Called when AsyncMessageWriter.publish() has completed successfully.
@@ -178,7 +211,8 @@ interface WriterMessageCallback<T> {
 
     /**
      * Called when any error condition has met. The error might be detected
-     * either at the sinetstream-android level, or at underneath library level.
+     * either at this sinetstream-android library, or at somewhere in the
+     * lower level libraries.
      *
      * @param description brief description of the error, not {@code null}.
      * @param exception optional info detected at the error point.

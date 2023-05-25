@@ -27,6 +27,8 @@ import android.content.Context;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import jp.ad.sinet.stream.android.api.low.WriterMessageCallback;
+
 /**
  * Provides a set of API functions to be a Writer (= publisher)
  * in the SINETStream system.
@@ -63,7 +65,30 @@ public class SinetStreamWriterString extends SinetStreamWriter<String> {
     public void initialize(
             @NonNull String serviceName, @Nullable String alias) {
         super.initialize(serviceName, alias);
+        /* Wait for the event SinetStreamWriterListener.onWriterConfigLoaded() */
+    }
 
+    /**
+     * Sets up a connection to the Broker via underlying messaging system.
+     * <p>
+     * Actually, this is the latter half of initialization process.<br>
+     * In this method, internal callback handlers
+     * {@link WriterMessageCallback}
+     * will be associated with the given
+     * {@link SinetStreamWriterListener}
+     * to notify events to the user level.<br>
+     * As the last step of setup sequence, initial connect request
+     * to the Broker will be issued via underlying messaging system.
+     * </p>
+     * <p>
+     * NB: Connection parameters will be specified by external configuration file.
+     * </p>
+     *
+     * @see <a href=https://www.sinetstream.net/docs/userguide/config.html>
+     * https://www.sinetstream.net/docs/userguide/config.html</a>
+     */
+    @Override
+    public void setup() {
         if (super.isInitializationSuccess()) {
             ValueType valueType = getValueType();
             if (valueType != null && valueType.equals(ValueType.TEXT)) {

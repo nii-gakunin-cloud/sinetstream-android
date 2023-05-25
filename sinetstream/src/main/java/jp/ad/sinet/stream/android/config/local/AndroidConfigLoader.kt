@@ -19,7 +19,7 @@
  *  under the License.
  */
 
-package jp.ad.sinet.stream.android
+package jp.ad.sinet.stream.android.config.local
 
 import jp.ad.sinet.stream.android.api.*
 import org.yaml.snakeyaml.Yaml

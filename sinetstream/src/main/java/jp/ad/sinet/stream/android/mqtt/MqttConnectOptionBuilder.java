@@ -28,17 +28,19 @@ import androidx.annotation.NonNull;
 
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 
+import java.util.Base64;
 import java.util.Properties;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 
-import jp.ad.sinet.stream.android.config.ConfigParser;
-import jp.ad.sinet.stream.android.config.MqttParser;
-import jp.ad.sinet.stream.android.config.MqttTlsParser;
-import jp.ad.sinet.stream.android.config.TlsParser;
-import jp.ad.sinet.stream.android.config.UserPasswordParser;
+import jp.ad.sinet.stream.android.config.parser.ConfigParser;
+import jp.ad.sinet.stream.android.config.parser.MqttParser;
+import jp.ad.sinet.stream.android.config.parser.MqttTlsParser;
+import jp.ad.sinet.stream.android.config.parser.TlsParser;
+import jp.ad.sinet.stream.android.config.parser.UserPasswordParser;
 import jp.ad.sinet.stream.android.net.cert.KeyChainParser;
+import jp.ad.sinet.stream.android.net.cert.PrivateCertHandler;
 
 /*
  * This class allocates a MqttConnectOptions and sets up its contents
@@ -184,12 +186,19 @@ public class MqttConnectOptionBuilder {
     }
 
     private void setTlsParams(MqttConnectOptions mqttConnectOptions) {
-        setSslSocket(mqttConnectOptions);
         setHttpsHostnameVerificationEnabled(mqttConnectOptions);
+        if (mTlsParser.isBuildSslContextByDataSets()) {
+            setSslSocketFromDataSets(mqttConnectOptions);
+
+            /* OK, all setup has done */
+            mListener.onFinished(mqttConnectOptions);
+        } else {
+            setSslSocketFromKeyChain(mqttConnectOptions);
+        }
     }
 
     /* OBSOLETED
-    private void setSslSocket(MqttConnectOptions mqttConnectOptions) {
+    private void setSslSocketFromFile(MqttConnectOptions mqttConnectOptions) {
         String selfSignedCertificate = null;
         String clientCertificate = null;
         String clientCertificatePassword = null;
@@ -227,7 +236,45 @@ public class MqttConnectOptionBuilder {
     }
      */
 
-    private void setSslSocket(MqttConnectOptions mqttConnectOptions) {
+    private void setSslSocketFromDataSets(MqttConnectOptions mqttConnectOptions) {
+        String probe;
+        String serverCertificate = null;
+        byte[] clientCertificate = null;
+        char[] clientPassword = null;
+
+        probe = mTlsParser.getSelfSignedCertificateData();
+        if (probe != null) {
+            serverCertificate = new String(Base64.getDecoder().decode(probe));
+        }
+        probe = mTlsParser.getClientCertificateData();
+        if (probe != null) {
+            clientCertificate = Base64.getDecoder().decode(probe);
+
+            probe = mTlsParser.getClientCertificatePassword();
+            if (probe != null) {
+                clientPassword = probe.toCharArray();
+            }
+        }
+
+        if (serverCertificate != null || clientCertificate != null) {
+            if (mDebugEnabled) {
+                Log.d(TAG, "Going to build SSLContext from datasets");
+            }
+            PrivateCertHandler handler = new PrivateCertHandler(mContext);
+
+            String protocolVersion = mConfigParser.getSSLContextProtocol();
+            handler.setProtocolVersion(protocolVersion);
+
+            SSLContext sslContext = handler.buildSslContextFromDataSets(
+                    serverCertificate, clientCertificate, clientPassword);
+
+            if (sslContext != null) {
+                mqttConnectOptions.setSocketFactory(sslContext.getSocketFactory());
+            }
+        }
+    }
+
+    private void setSslSocketFromKeyChain(MqttConnectOptions mqttConnectOptions) {
         String protocol =
                 mConfigParser.getSSLContextProtocol();
         String alias =
@@ -240,19 +287,23 @@ public class MqttConnectOptionBuilder {
                 Log.w(TAG, "KeyChainParser thread is still running!");
             }
         } else {
-            Log.d(TAG, "Going to run KeyChainParser thread");
+            if (mDebugEnabled) {
+                Log.d(TAG, "Going to run KeyChainParser thread");
+            }
             mThread = new Thread(new KeyChainParser(
                     mContext,
                     new KeyChainParser.KeyChainParserListener() {
                         @Override
-                        public void onError(@NonNull String errmsg) {
-                            Log.e(TAG, "KeyChainParser: " + errmsg);
-                            mListener.onError("KeyChainParser: " + errmsg);
+                        public void onError(@NonNull String description) {
+                            Log.e(TAG, "KeyChainParser: " + description);
+                            mListener.onError(description);
                         }
 
                         @Override
                         public void onParsed(@NonNull SSLContext sslContext) {
-                            Log.d(TAG, "onParsed: " + sslContext);
+                            if (mDebugEnabled) {
+                                Log.d(TAG, "onParsed: " + sslContext);
+                            }
                             try {
                                 SSLSocketFactory sslSocketFactory =
                                         sslContext.getSocketFactory();
@@ -286,8 +337,13 @@ public class MqttConnectOptionBuilder {
         }
     }
 
+    private boolean mDebugEnabled = false;
+    public void enableDebug(boolean enabled) {
+        mDebugEnabled = enabled;
+    }
+
     public interface MqttConnectOptionBuilderListener {
-        void onError(@NonNull String errmsg);
+        void onError(@NonNull String description);
         void onFinished(@NonNull MqttConnectOptions mqttConnectOptions);
     }
 }

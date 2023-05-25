@@ -27,6 +27,8 @@ import android.content.Context;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import jp.ad.sinet.stream.android.api.low.ReaderMessageCallback;
+
 /**
  * Provides a set of API functions to be a Reader (= subscriber)
  * in the SINETStream system.
@@ -63,7 +65,30 @@ public class SinetStreamReaderBytes extends SinetStreamReader<byte[]> {
     public void initialize(
             @NonNull String serviceName, @Nullable String alias) {
         super.initialize(serviceName, alias);
+        /* Wait for the event SinetStreamReaderListener.onReaderConfigLoaded() */
+    }
 
+    /**
+     * Sets up a connection to the Broker via underlying messaging system.
+     * <p>
+     * Actually, this is the latter half of initialization process.<br>
+     * In this method, internal callback handlers
+     * {@link ReaderMessageCallback}
+     * will be associated with the
+     * {@link SinetStreamReaderListener}
+     * to notify events to the user level.<br>
+     * As the last step of setup sequence, initial connect request
+     * to the Broker will be issued via underlying messaging system.
+     * </p>
+     * <p>
+     * NB: Connection parameters will be specified by external configuration file.
+     * </p>
+     *
+     * @see <a href=https://www.sinetstream.net/docs/userguide/config.html>
+     * https://www.sinetstream.net/docs/userguide/config.html</a>
+     */
+    @Override
+    public void setup() {
         if (super.isInitializationSuccess()) {
             ValueType valueType = getValueType();
             if (valueType != null && valueType.equals(ValueType.BYTE_ARRAY)) {

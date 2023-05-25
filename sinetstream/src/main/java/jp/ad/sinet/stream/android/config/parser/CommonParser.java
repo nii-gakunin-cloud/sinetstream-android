@@ -19,7 +19,7 @@
  *  under the License.
  */
 
-package jp.ad.sinet.stream.android.config;
+package jp.ad.sinet.stream.android.config.parser;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -31,17 +31,17 @@ import jp.ad.sinet.stream.android.api.InvalidConfigurationException;
 public class CommonParser extends BaseParser {
 
     /* Entry point */
-    public void parse(@NonNull Map<String,Object> myParams)
+    public void parse(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
-        parseMessagingSystemType(myParams);
-        parseBrokers(myParams);
+        parseMessagingSystemType(configParameters);
+        parseBrokers(configParameters);
     }
 
     private String mType = null;
-    private void parseMessagingSystemType(@NonNull Map<String,Object> myParams)
+    private void parseMessagingSystemType(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "type"; /* Mandatory */
-        String parsedValue = super.parseString(myParams, key, true);
+        String parsedValue = super.parseString(configParameters, key, true);
         if (parsedValue != null && !parsedValue.equalsIgnoreCase("mqtt")) {
             throw new InvalidConfigurationException(
                     key + "(" + parsedValue + "): Unsupported value", null);
@@ -55,10 +55,10 @@ public class CommonParser extends BaseParser {
     }
 
     private String[] mBrokers = null;
-    private void parseBrokers(@NonNull Map<String,Object> myParams)
+    private void parseBrokers(@NonNull Map<String,Object> configParameters)
             throws InvalidConfigurationException {
         String key = "brokers"; /* Mandatory */
-        String[] array = super.parseStringList(myParams, key, true);
+        String[] array = super.parseStringList(configParameters, key, true);
         if (array != null) {
             for (int i = 0, n = array.length; i < n; i++) {
                 String parsedValue = array[i];
