@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 National Institute of Informatics
+ * Copyright (C) 2021 National Institute of Informatics
  *
  *  Licensed to the Apache Software Foundation (ASF) under one
  *  or more contributor license agreements.  See the NOTICE file
