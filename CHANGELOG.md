@@ -10,6 +10,18 @@ https://keepachangelog.com/
 ### Security
 --->
 
+## [v1.9.2] - 2025-03-31
+
+### Changed
+
+- Update build environ
+    - Android Studio Meerkat (Gradle 8.13, AGP 8.9.1)
+    - Java 17
+    - SnakeYAML 2.4
+    - AVRO 1.12.0
+    - PahoMqttAndroid-bugfix 1.9.2
+
+
 ## [v1.8.0] - 2023-05-26
 
 ### Added

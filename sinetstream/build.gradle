@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 // From Kotlin-1.4.20, kotlin-android-extensions is deprecated.
 plugins {
   id 'com.android.library'
@@ -8,18 +10,17 @@ plugins {
 }
 
 android {
-    compileSdk 33
-    buildToolsVersion '33.0.2'
+    compileSdk 35
 
     defaultConfig {
-        testInstrumentationRunnerArguments runnerBuilder: 'de.mannodermaus.junit5.AndroidJUnit5Builder'
-        testInstrumentationRunnerArguments
         minSdk 26
-        targetSdk 33
+        targetSdk 35
         versionCode currentCode as Integer
         versionName currentVersion
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunnerArguments runnerBuilder: 'de.mannodermaus.junit5.AndroidJUnit5Builder'
+        testInstrumentationRunnerArguments
         consumerProguardFiles 'consumer-rules.pro'
     }
 
@@ -31,8 +32,8 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     packagingOptions {
@@ -44,12 +45,22 @@ android {
         }
     }
 
+    //
+    // We need to configure Android publication 'maven' for variant 'release'.
+    // https://developer.android.com/build/publish-library/configure-pub-variants
+    //
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+        }
+    }
+
     namespace 'jp.ad.sinet.stream'
 }
 
-tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
+tasks.withType(KotlinCompile).configureEach {
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = JavaVersion.VERSION_17
     }
 }
 
@@ -97,21 +108,13 @@ repositories {
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.1.20'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:${kotlin_version}"
-    implementation 'androidx.appcompat:appcompat:1.6.1'
-    /*
-     * WORKAROUND: Avoid using core-ktx:1.10.0 for now.
-     *
-     * Duplicate class XXX found in among modules:
-     *   kotlin-stdlib:1.8.10
-     *   kotlin-stdlib-jdk8:1.6.0
-     *   kotlin-stdlib-jdk7:1.7.10
-     */
-    //implementation 'androidx.core:core-ktx:1.10.0'
-    implementation 'androidx.core:core-ktx:1.9.0'
-    implementation 'org.yaml:snakeyaml:2.0'
-    implementation 'org.apache.avro:avro:1.11.1'
-    implementation 'com.google.code.gson:gson:2.10.1'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.core:core-ktx:1.15.0'
+    implementation 'org.yaml:snakeyaml:2.4'
+    implementation 'org.apache.avro:avro:1.12.0'
+    implementation 'com.google.code.gson:gson:2.12.1'
 
     /*
      * Workaround for Android 12+
@@ -124,25 +127,20 @@ dependencies {
      */
     implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
     //implementation 'org.eclipse.paho:org.eclipse.paho.android.service:1.1.1'
-    implementation 'net.sinetstream:pahomqttandroid-bugfix:1.0.0'
+    implementation 'net.sinetstream:pahomqttandroid-bugfix:1.9.2'
 
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.3'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.9.3'
-    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.9.3'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.12.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.12.1'
+    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.12.1'
 
     /*
      * Android-Junit5
      * https://github.com/mannodermaus/android-junit5#instrumentation-test-support
      */
-    androidTestImplementation 'androidx.test:runner:1.5.2'
-    androidTestImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.3'
-    androidTestImplementation 'de.mannodermaus.junit5:android-test-core:1.3.0'
-    androidTestRuntimeOnly 'de.mannodermaus.junit5:android-test-runner:1.3.0'
-}
-
-task androidSourcesJar(type: Jar) {
-    archiveClassifier.set('sources')
-    from android.sourceSets.main.java.srcDirs
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'org.junit.jupiter:junit-jupiter-api:5.12.1'
+    androidTestImplementation 'de.mannodermaus.junit5:android-test-core:1.7.0'
+    androidTestRuntimeOnly 'de.mannodermaus.junit5:android-test-runner:1.7.0'
 }
 
 afterEvaluate {
@@ -150,7 +148,6 @@ afterEvaluate {
     publications {
       maven(MavenPublication) {
         from components.release
-        artifact androidSourcesJar
         groupId = 'jp.ad.sinet.sinetstream'
         artifactId = 'SINETStream-android'
         version = currentVersion
